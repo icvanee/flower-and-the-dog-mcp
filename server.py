@@ -18,6 +18,7 @@ from tools.coachleo import (
     coachleo_get_upcoming_races,
     coachleo_log_run,
 )
+from tools.carwash import carwash_get_history
 
 server = Server("flower-and-the-dog-toolbox")
 
@@ -53,6 +54,22 @@ async def list_tools() -> list[Tool]:
                     "expression": {"type": "string", "description": "Math expression to evaluate"}
                 },
                 "required": ["expression"],
+            },
+        ),
+
+        # Carwash tool
+        Tool(
+            name="carwash_get_history",
+            description="Geeft de wasgeschiedenis van de auto terug via het Carwash Kleiboer klantenportaal. Gebruik dit om te vragen wanneer de auto voor het laatst gewassen is.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "days": {
+                        "type": "integer",
+                        "description": "Hoeveel dagen terug te kijken (standaard 365).",
+                    }
+                },
+                "required": [],
             },
         ),
 
@@ -96,7 +113,12 @@ async def list_tools() -> list[Tool]:
 @server.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
-    if name == "get_current_datetime":
+    if name == "carwash_get_history":
+        days = arguments.get("days", 365)
+        result = await carwash_get_history(days=days)
+        return [TextContent(type="text", text=json.dumps(result, indent=2, ensure_ascii=False))]
+
+    elif name == "get_current_datetime":
         from zoneinfo import ZoneInfo
         now = datetime.now(ZoneInfo("Europe/Amsterdam"))
         result = {
