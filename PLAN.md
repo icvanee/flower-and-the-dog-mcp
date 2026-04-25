@@ -98,7 +98,7 @@ flower-and-the-dog-mcp/
 
 ## Next steps
 
-### Step 1 — Deploy MCP server to Railway
+### Step 1 — Deploy MCP server to Railway ✅
 
 1. In Railway → "Flower and the Dog Toolbox" project → Add Service → GitHub Repo
 2. Select `flower-and-the-dog-mcp`
@@ -110,7 +110,7 @@ flower-and-the-dog-mcp/
    ```
 4. Railway auto-deploys from `railway.toml`
 
-### Step 2 — Add custom domain for MCP server
+### Step 2 — Add custom domain for MCP server ⏳ (DNS propagating)
 
 1. Railway → mcp service → Settings → Networking → Add Custom Domain → `mcp.flowerandthedog.nl`
 2. Railway shows required DNS records (CNAME + TXT verify)
@@ -131,7 +131,7 @@ curl https://mcp.flowerandthedog.nl/sse \
   -H "Authorization: Bearer YOUR_MCP_SECRET_TOKEN"
 ```
 
-### Step 4 — Configure Claude Desktop
+### Step 4 — Configure Claude Desktop ✅ (klaar, wacht op DNS)
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -186,15 +186,11 @@ Coach Leo is an Angular 19 + NestJS + PostgreSQL personal training app for dista
 runners (Strava integration, AI-generated plans with 10% rule, cutback weeks, race tapers).
 Deployed on Railway.
 
-### Step 7 — Add carwash tool
+### Step 7 — Add carwash tool ✅
 
-Iwan has an existing Python script that logs into his carwash website.
-To add it as a tool:
-
-1. Create `tools/carwash.py`
-2. Wrap the existing script as an async function
-3. Register the tool in `server.py` (add to `list_tools()` and `call_tool()`)
-4. Add any credentials as Railway env vars
+- `tools/carwash.py` aangemaakt (async, httpx, Excel parser)
+- Geregistreerd in `server.py`
+- `CARWASH_USERNAME` + `CARWASH_PASSWORD` staan in Railway env vars
 
 ---
 

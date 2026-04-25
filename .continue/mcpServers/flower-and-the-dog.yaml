@@ -1,0 +1,11 @@
+name: Flower and the Dog
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: flower-and-the-dog
+    command: npx
+    args:
+      - mcp-remote
+      - https://flower-and-the-dog-mcp-production.up.railway.app/sse
+      - --header
+      - "Authorization: Bearer 5de4b3c3ce6b363a37d49f30e933664d8800e22da1ccfc20616f7a683f1d1e01"

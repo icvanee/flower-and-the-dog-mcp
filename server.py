@@ -26,8 +26,13 @@ server = Server("flower-and-the-dog-toolbox")
 
 class BearerAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
+        # Health checks always allowed
         if request.url.path in ["/health", "/"]:
             return await call_next(request)
+        # /messages is protected by session_id (only given to auth'd clients via /sse)
+        if request.url.path.startswith("/messages") and request.query_params.get("session_id"):
+            return await call_next(request)
+        # All other endpoints require Bearer token
         token = request.headers.get("Authorization", "")
         expected = f"Bearer {os.environ.get('MCP_SECRET_TOKEN', '')}"
         if token != expected:
