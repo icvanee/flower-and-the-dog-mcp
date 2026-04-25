@@ -179,13 +179,18 @@ async def handle_sse(request):
             streams[0], streams[1], server.create_initialization_options()
         )
 
+async def handle_messages(request):
+    # Use Route instead of Mount to avoid Starlette/CDN 307 redirect on /messages → /messages/
+    await sse.handle_post_message(request.scope, request.receive, request._send)
+
 async def health(request):
     return JSONResponse({"status": "ok", "server": "flower-and-the-dog-toolbox"})
 
 app = Starlette(
     routes=[
         Route("/sse", endpoint=handle_sse),
-        Mount("/messages", app=sse.handle_post_message),
+        Route("/messages", endpoint=handle_messages, methods=["POST"]),
+        Route("/messages/", endpoint=handle_messages, methods=["POST"]),
         Route("/health", endpoint=health),
         Route("/", endpoint=health),
     ],
