@@ -1,5 +1,6 @@
 import asyncio
 import html
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +31,17 @@ ALLOWED_REDIRECT_HOSTS = os.environ.get(
 TZ = ZoneInfo("Europe/Amsterdam")
 WEEKDAGEN = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger("toolbox")
+
+async def log_requests(ctx, call_next):
+    """Logt elk MCP-verzoek, met de toolnaam bij tools/call."""
+    if ctx.method == "tools/call":
+        log.info("tools/call %s", (ctx.params or {}).get("name"))
+    else:
+        log.info("%s", ctx.method)
+    return await call_next(ctx)
+
 oauth = SingleUserOAuthProvider(
     db_path=DATA_DIR / "oauth.sqlite",
     password=os.environ.get("MCP_LOGIN_PASSWORD", ""),
@@ -48,6 +60,7 @@ mcp = MCPServer(
         client_registration_options=ClientRegistrationOptions(enabled=True),
         revocation_options=RevocationOptions(enabled=True),
     ),
+    middleware=[log_requests],
 )
 
 # ─── Algemene tools ────────────────────────────────────────────────────────────
@@ -151,4 +164,7 @@ app = mcp.streamable_http_app(
 )
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=HOST, port=PORT, proxy_headers=True, forwarded_allow_ips="127.0.0.1")
+    log_config = uvicorn.config.LOGGING_CONFIG
+    for formatter in log_config["formatters"].values():
+        formatter["fmt"] = "%(asctime)s " + formatter["fmt"]
+    uvicorn.run(app, host=HOST, port=PORT, proxy_headers=True, forwarded_allow_ips="127.0.0.1", log_config=log_config)
