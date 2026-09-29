@@ -1,0 +1,15 @@
+[project]
+name = "flower-and-the-dog-mcp"
+version = "2.0.0"
+description = "Persoonlijke MCP-server (Flower and the Dog Toolbox), draait op de Mac Mini"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp==2.2.*",
+    "uvicorn>=0.30.0",
+    "httpx>=0.27.0",
+    "beautifulsoup4>=4.12.0",
+    "openpyxl>=3.1.0",
+]
+
+[tool.uv]
+package = false
