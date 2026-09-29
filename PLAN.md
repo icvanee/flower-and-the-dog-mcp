@@ -8,9 +8,9 @@ recente trainingen opvragen en de dag erna in de auto notities dicteren.
 - Draait op de Mac Mini, niet meer op Railway. Railway blijft draaien tot de Mini-versie
   getest is; daarna gaat de Railway-service uit. Deze branch (`mini-oauth`) gaat pas naar
   `main` als Railway uit staat.
-- Publiek via een cloudflared named tunnel op `mcp.flowerandthedog.nl`. Daarvoor gaan de
-  nameservers van `flowerandthedog.nl` van YourHosting naar Cloudflare (gratis plan);
-  het `n8n`-CNAME naar Railway gaat mee.
+- Publiek via Tailscale Funnel op het `ts.net`-adres van de Mini. De DNS van
+  `flowerandthedog.nl` blijft bij YourHosting; een Cloudflare-tunnel op eigen domein zou
+  een nameserververhuizing vergen.
 - OAuth via de autorisatieserver van de MCP SDK, met één gebruiker en een wachtwoordpagina.
 - Secrets in `~/.config/flower-and-the-dog-mcp/env` (chmod 600), eventueel met op://-verwijzingen.
 - Tools: carwash en de coachleo-placeholders blijven, `calculate` is weg.
@@ -18,7 +18,7 @@ recente trainingen opvragen en de dag erna in de auto notities dicteren.
 ## Stappen
 
 0. **Werkt het end-to-end?** Server met OAuth en Streamable HTTP (klaar op deze branch),
-   tunnel, connector in claude.ai. Test in de iPhone-app, in spraakmodus en in CarPlay
+   Funnel, connector in claude.ai. Test in de iPhone-app, in spraakmodus en in CarPlay
    voordat we verder bouwen.
 1. **Trainingstools** op de Postgres van health-dashboard (`HEALTH_DATABASE_URL`, eigen
    rol `mcp`: SELECT op Run/RunSplit/StatusNote/TrainingPlanEntry, UPDATE alleen op
@@ -30,5 +30,6 @@ recente trainingen opvragen en de dag erna in de auto notities dicteren.
    - `status_notitie(tekst, categorie="general")`
    - `komend_schema(dagen=7)`
    De ingest-scripts van health-dashboard zetten `notes` nooit; zo moet het blijven.
-2. **Op de Mini**: launchd-agents `nl.icvanee.mcp` en `nl.icvanee.cloudflared-mcp` in mac-mini-setup.
-3. **Opruimen**: Railway uit, deze branch naar `main`.
+2. **Op de Mini**: launchd-agent `nl.icvanee.mcp` in mac-mini-setup, plus `tailscale funnel --bg 8765`.
+3. **Opruimen**: Railway uit, deze branch naar `main`, en het CNAME `mcp` bij YourHosting
+   (wees nu naar Railway) verwijderen.

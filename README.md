@@ -1,8 +1,8 @@
 # Flower and the Dog — MCP Toolbox
 
 Persoonlijke MCP-server van Iwan. Draait op de Mac Mini (launchd-agent `nl.icvanee.mcp`
-uit mac-mini-setup) op `127.0.0.1:8765` en is publiek bereikbaar via een cloudflared-tunnel
-op `https://mcp.flowerandthedog.nl`. Te koppelen als custom connector in claude.ai (ook
+uit mac-mini-setup) op `127.0.0.1:8765` en is publiek bereikbaar via Tailscale Funnel
+op `https://<mini>.<tailnet>.ts.net`. Te koppelen als custom connector in claude.ai (ook
 op iPhone), met OAuth in plaats van een vaste Bearer-token.
 
 - Transport: Streamable HTTP op `/mcp`
@@ -30,7 +30,8 @@ cp env.example ~/.config/flower-and-the-dog-mcp/env && chmod 600 ~/.config/flowe
 ./run.sh
 ```
 
-Op de Mini start launchd `run.sh`: `./install-agents.sh mcp cloudflared-mcp` in mac-mini-setup.
+Op de Mini start launchd `run.sh` (`./install-agents.sh mcp` in mac-mini-setup) en maakt
+`sudo tailscale funnel --bg 8765` de server publiek.
 
 ## Configuratie
 
@@ -46,7 +47,7 @@ Op de Mini start launchd `run.sh`: `./install-agents.sh mcp cloudflared-mcp` in 
 
 ## Koppelen
 
-claude.ai → Settings → Connectors → Add custom connector → `https://mcp.flowerandthedog.nl/mcp`.
+claude.ai → Settings → Connectors → Add custom connector → `https://<mini>.<tailnet>.ts.net/mcp`.
 Claude opent de inlogpagina; vul het wachtwoord in. De connector werkt daarna ook in de
 iPhone-app.
 
