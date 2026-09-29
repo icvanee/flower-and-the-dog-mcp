@@ -13,14 +13,14 @@ recente trainingen opvragen en de dag erna in de auto notities dicteren.
   een nameserververhuizing vergen.
 - OAuth via de autorisatieserver van de MCP SDK, met één gebruiker en een wachtwoordpagina.
 - Secrets in `~/.config/flower-and-the-dog-mcp/env` (chmod 600), eventueel met op://-verwijzingen.
-- Tools: carwash en de coachleo-placeholders blijven, `calculate` is weg.
+- Tools: carwash blijft; `calculate` en de coachleo-placeholders zijn weg (het schema komt uit health-dashboard).
 
 ## Stappen
 
 0. **Werkt het end-to-end?** Server met OAuth en Streamable HTTP (klaar op deze branch),
    Funnel, connector in claude.ai. Test in de iPhone-app, in spraakmodus en in CarPlay
    voordat we verder bouwen.
-1. **Trainingstools** op de Postgres van health-dashboard (`HEALTH_DATABASE_URL`, eigen
+1. **Trainingstools** (klaar) op de Postgres van health-dashboard (`HEALTH_DATABASE_URL`, eigen
    rol `mcp`: SELECT op Run/RunSplit/StatusNote/TrainingPlanEntry, UPDATE alleen op
    `Run.notes` en `Run.updatedAt`, INSERT op StatusNote):
    - `recente_trainingen(aantal=5)`

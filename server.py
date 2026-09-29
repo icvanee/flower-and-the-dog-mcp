@@ -4,6 +4,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
@@ -11,11 +12,13 @@ import uvicorn
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
+from pydantic import Field
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from auth import SingleUserOAuthProvider
-from tools import carwash, coachleo
+from tools import carwash, training
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 # Op de Mini komen deze uit ~/.config/flower-and-the-dog-mcp/env (zie README).
@@ -51,7 +54,12 @@ oauth = SingleUserOAuthProvider(
 
 mcp = MCPServer(
     name="flower-and-the-dog-toolbox",
-    instructions="Persoonlijke tools van Iwan. Antwoorden worden vaak voorgelezen: houd ze kort.",
+    instructions=(
+        "Persoonlijke tools van Iwan, vaak gebruikt via spraak (ook in de auto): houd antwoorden kort. "
+        "Trainingen komen uit Iwans eigen trainingsdatabase. Vertelt Iwan hoe een training ging, "
+        "sla dat dan op met notitie_bij_training; gaat het niet over één training (heup, slaap, "
+        "hoe hij zich voelt), gebruik status_notitie. Zeg daarna kort wat er is opgeslagen."
+    ),
     auth_server_provider=oauth,
     auth=AuthSettings(
         issuer_url=PUBLIC_URL,
@@ -65,7 +73,7 @@ mcp = MCPServer(
 
 # ─── Algemene tools ────────────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def get_current_datetime() -> str:
     """Geeft de huidige datum en tijd in Nederland. Gebruik dit om 'gisteren' of 'vorige week' om te rekenen naar een datum."""
     now = datetime.now(TZ)
@@ -73,27 +81,63 @@ def get_current_datetime() -> str:
 
 # ─── Carwash ───────────────────────────────────────────────────────────────────
 
-@mcp.tool(name="carwash_get_history")
+@mcp.tool(name="carwash_get_history", annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
 async def _carwash_get_history(days: int = 365) -> dict:
     """Geeft de wasgeschiedenis van de auto terug via het Carwash Kleiboer klantenportaal. Gebruik dit om te vragen wanneer de auto voor het laatst gewassen is."""
     return await carwash.carwash_get_history(days=days)
 
-# ─── Coach Leo (placeholders) ──────────────────────────────────────────────────
+# ─── Trainingen (health-dashboard) ─────────────────────────────────────────────
 
-@mcp.tool(name="coachleo_get_plan")
-async def _coachleo_get_plan(week_offset: int = 0) -> dict:
-    """Get the training plan from Coach Leo for a given week. 0 = current week, 1 = next week, -1 = last week."""
-    return await coachleo.coachleo_get_plan(week_offset)
+LEZEN = ToolAnnotations(read_only_hint=True, open_world_hint=False)
+TOEVOEGEN = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=False)
 
-@mcp.tool(name="coachleo_get_upcoming_races")
-async def _coachleo_get_upcoming_races() -> dict:
-    """Get upcoming races from Coach Leo"""
-    return await coachleo.coachleo_get_upcoming_races()
+Datum = Annotated[str | None, Field(description="Datum als JJJJ-MM-DD. Reken 'gisteren' e.d. om met get_current_datetime. Leeg = meest recente training.")]
+TrainingId = Annotated[str | None, Field(description="Id van de training, alleen nodig als er op één dag meerdere zijn.")]
+Soort = Annotated[str, Field(description="Workouttype: running (standaard), walking, cycling, swimming, traditionalStrengthTraining, ... of 'alle'.")]
 
-@mcp.tool(name="coachleo_log_run")
-async def _coachleo_log_run(distance_km: float, duration_minutes: float, notes: str = "") -> dict:
-    """Log a completed run in Coach Leo"""
-    return await coachleo.coachleo_log_run(distance_km, duration_minutes, notes)
+@mcp.tool(annotations=LEZEN)
+async def recente_trainingen(
+    aantal: Annotated[int, Field(description="Hoeveel trainingen, 1 tot 30.")] = 5,
+    soort: Soort = "running",
+) -> str:
+    """Iwans meest recente trainingen (standaard hardlopen): datum, afstand, tijd, tempo, gemiddelde hartslag en of er al een notitie is."""
+    return await training.recente_trainingen(aantal, soort)
+
+@mcp.tool(annotations=LEZEN)
+async def training_details(datum: Datum = None, training_id: TrainingId = None, soort: Soort = "running") -> str:
+    """Alles over één training van Iwan: tempo, hartslag, zones, splits per km, wat er gepland stond en de notities."""
+    return await training.training_details(datum, training_id, soort)
+
+@mcp.tool(annotations=TOEVOEGEN)
+async def notitie_bij_training(
+    tekst: Annotated[str, Field(description="Hoe de training ging, beknopt en in Iwans eigen woorden: gevoel, pijntjes, omstandigheden.")],
+    datum: Datum = None,
+    training_id: TrainingId = None,
+    soort: Soort = "running",
+) -> str:
+    """Slaat op hoe een training ging, bij die training in Iwans trainingsdatabase. Vult aan met een tijdstempel en overschrijft nooit bestaande notities. Zonder datum: de meest recente training."""
+    return await training.notitie_bij_training(tekst, datum, training_id, soort)
+
+@mcp.tool(annotations=TOEVOEGEN)
+async def status_notitie(
+    tekst: Annotated[str, Field(description="De notitie, beknopt en in Iwans eigen woorden.")],
+    categorie: Annotated[str, Field(description="'hip' voor de heup, anders 'general' of een ander kort label.")] = "general",
+) -> str:
+    """Slaat een notitie van vandaag op die niet bij één training hoort, zoals hoe de heup voelt, slaap of algemene conditie."""
+    return await training.status_notitie(tekst, categorie)
+
+@mcp.tool(annotations=LEZEN)
+async def status_notities(
+    dagen: Annotated[int, Field(description="Hoeveel dagen terug, 1 tot 365.")] = 30,
+    categorie: Annotated[str | None, Field(description="Alleen deze categorie, bijvoorbeeld 'hip'. Leeg = alle.")] = None,
+) -> str:
+    """Iwans statusnotities van de afgelopen tijd, zoals het verloop van de heupblessure."""
+    return await training.status_notities(dagen, categorie)
+
+@mcp.tool(annotations=LEZEN)
+async def trainingsschema(dagen: Annotated[int, Field(description="Hoeveel dagen vooruit, 1 tot 60.")] = 7) -> str:
+    """Wat er de komende dagen op Iwans trainingsschema staat."""
+    return await training.trainingsschema(dagen)
 
 # ─── HTTP-routes buiten MCP ────────────────────────────────────────────────────
 

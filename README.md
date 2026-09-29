@@ -17,9 +17,26 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 |------|-----|
 | `get_current_datetime` | Datum, weekdag en tijd in Nederland |
 | `carwash_get_history` | Wasgeschiedenis bij Carwash Kleiboer |
-| `coachleo_get_plan` | Placeholder |
-| `coachleo_get_upcoming_races` | Placeholder |
-| `coachleo_log_run` | Placeholder |
+| `recente_trainingen` | Laatste trainingen (standaard hardlopen) |
+| `training_details` | Eén training: zones, splits, schema, notities |
+| `notitie_bij_training` | Vult de notities van een training aan (nooit overschrijven) |
+| `status_notitie` | Notitie los van een training, bijv. over de heup |
+| `status_notities` | Recente statusnotities |
+| `trainingsschema` | Wat er de komende dagen gepland staat |
+
+De trainingstools lezen en schrijven de Postgres van health-dashboard als rol `mcp`
+(`HEALTH_DATABASE_URL`). Die rol mag lezen uit `Run`, `RunSplit`, `StatusNote` en
+`TrainingPlanEntry`, alleen `Run.notes`/`updatedAt` wijzigen en `StatusNote` aanvullen:
+
+```sql
+CREATE ROLE mcp LOGIN PASSWORD '...';
+GRANT CONNECT ON DATABASE health TO mcp;
+GRANT USAGE ON SCHEMA public TO mcp;
+GRANT SELECT ON "Run", "RunSplit", "StatusNote", "TrainingPlanEntry" TO mcp;
+GRANT UPDATE (notes, "updatedAt") ON "Run" TO mcp;
+GRANT INSERT ON "StatusNote" TO mcp;
+GRANT USAGE ON SEQUENCE "StatusNote_id_seq" TO mcp;
+```
 
 ## Draaien
 
@@ -44,6 +61,7 @@ Op de Mini start launchd `run.sh` (`./install-agents.sh mcp` in mac-mini-setup) 
 | `MCP_DATA_DIR` | `~/.local/share/flower-and-the-dog-mcp` | Plek van `oauth.sqlite` |
 | `MCP_ALLOWED_REDIRECT_HOSTS` | `claude.ai,claude.com,localhost,127.0.0.1` | Toegestane OAuth-redirects |
 | `CARWASH_USERNAME`, `CARWASH_PASSWORD` | — | Carwash-portaal |
+| `HEALTH_DATABASE_URL` | — | Postgres van health-dashboard, als rol `mcp` (poort 5433) |
 
 ## Koppelen
 
