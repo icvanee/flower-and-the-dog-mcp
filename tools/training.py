@@ -4,7 +4,9 @@ Trainingen uit de Postgres van health-dashboard (~/Source/health-dashboard).
 Verbindt als rol `mcp` via HEALTH_DATABASE_URL. Die rol mag lezen, alleen
 Run.notes/updatedAt wijzigen en StatusNote-rijen toevoegen. Notities worden
 altijd aangevuld, nooit overschreven; de ingest-scripts van health-dashboard
-raken Run.notes niet aan, dus ze overleven een her-import.
+raken Run.notes en StatusNote-rijen met een andere bron dan "logbook" niet aan,
+dus ze overleven een her-import. Het runlog uit het overdrachtsdocument staat
+apart in Run."logbookNotes"; dat leest deze server alleen.
 
 Antwoorden zijn korte Nederlandse tekst, omdat ze vaak worden voorgelezen.
 """
@@ -38,8 +40,8 @@ SOORTEN = {
 RUN_COLUMNS = """
     id, date, "workoutType", "distanceMeters", "durationSeconds", "avgHeartRate",
     "maxHeartRate", "avgPaceSecPerKm", "hrDriftBpm", "elevationGainMeters",
-    "hrZoneEasyPct", "hrZoneAerobicPct", "hrZoneThresholdPct", "hrZoneHardPct",
-    "weatherTempCelsius", source, notes,
+    "hrZone1Sec", "hrZone2Sec", "hrZone3Sec", "hrZone4Sec", "hrZone5Sec",
+    "weatherTempCelsius", source, notes, "logbookNotes",
     ("startTime" AT TIME ZONE 'UTC') AT TIME ZONE 'Europe/Amsterdam' AS start_local
 """
 
@@ -141,7 +143,7 @@ async def recente_trainingen(aantal: int = 5, soort: str = "running") -> str:
     regels = []
     for r in rows:
         regel = _samenvatting(r)
-        if r["notes"]:
+        if r["notes"] or r["logbookNotes"]:
             regel += " Heeft een notitie."
         regels.append(regel)
     return "\n".join(regels)
@@ -172,10 +174,13 @@ async def training_details(datum: str | None = None, training_id: str | None = N
     if extra:
         regels.append(", ".join(extra).capitalize() + ".")
 
-    zones = [("easy", run["hrZoneEasyPct"]), ("aeroob", run["hrZoneAerobicPct"]),
-             ("drempel", run["hrZoneThresholdPct"]), ("hard", run["hrZoneHardPct"])]
-    if any(pct for _, pct in zones):
-        regels.append("Hartslagzones: " + ", ".join(f"{naam} {round(pct)}%" for naam, pct in zones if pct) + ".")
+    # Seconden per zone (Z1..Z5, grenzen uit het SMO Papendal), als aandeel van de tijd
+    zone_sec = [run[f"hrZone{i}Sec"] or 0 for i in range(1, 6)]
+    totaal = sum(zone_sec)
+    if totaal:
+        regels.append("Hartslagzones: " + ", ".join(
+            f"zone {i} {round(100 * sec / totaal)}%" for i, sec in enumerate(zone_sec, 1) if round(100 * sec / totaal)
+        ) + ".")
     if splits:
         regels.append("Per km: " + "; ".join(
             f"{s['km']}: {_duur(s['paceSecPerKm'])}" + (f" ({round(s['avgHrBpm'])})" if s["avgHrBpm"] else "")
@@ -184,7 +189,12 @@ async def training_details(datum: str | None = None, training_id: str | None = N
     for p in plan:
         gepland = f" {_km(p['plannedKm'] * 1000)} km" if p["plannedKm"] else ""
         regels.append(f"Gepland: {p['type']}{gepland}" + (f" ({p['description']})" if p["description"] else "") + ".")
-    regels.append(f"Notities:\n{run['notes']}" if run["notes"] else "Nog geen notities.")
+    if run["logbookNotes"]:
+        regels.append(f"Uit het runlog:\n{run['logbookNotes']}")
+    if run["notes"]:
+        regels.append(f"Notities:\n{run['notes']}")
+    if not run["logbookNotes"] and not run["notes"]:
+        regels.append("Nog geen notities.")
     regels.append(f"(id {run['id']})")
     return "\n".join(regels)
 
@@ -215,7 +225,7 @@ async def status_notitie(tekst: str, categorie: str = "general") -> str:
     vandaag = datetime.now(TZ).date()
     async with await _connect() as conn:
         await conn.execute(
-            'INSERT INTO "StatusNote" (date, category, note) VALUES (%s, %s, %s)',
+            'INSERT INTO "StatusNote" (date, category, note, source) VALUES (%s, %s, %s, \'mcp\')',
             (vandaag, categorie, tekst),
         )
     return f"Statusnotitie ({categorie}) opgeslagen voor {_datum(vandaag)}."
