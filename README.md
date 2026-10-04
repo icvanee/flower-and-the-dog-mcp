@@ -50,6 +50,11 @@ cp env.example ~/.config/flower-and-the-dog-mcp/env && chmod 600 ~/.config/flowe
 Op de Mini start launchd `run.sh` (`./install-agents.sh mcp` in mac-mini-setup) en maakt
 `sudo tailscale funnel --bg 8765` de server publiek.
 
+De secrets staan in de 1Password-kluis "Mac Mini"; het env-bestand bevat alleen
+`op://`-verwijzingen. `run.sh` lost die op met `op run` en het alleen-lezen-token uit de
+Keychain (`op-sa-macmini`, zie het hoofdstuk 1Password in mac-mini-setup). Platte waarden
+omzetten: `scripts/env-to-op.sh`.
+
 ## Configuratie
 
 | Variabele | Standaard | Wat |
