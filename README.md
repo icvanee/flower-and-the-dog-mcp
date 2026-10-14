@@ -26,6 +26,8 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 | `agenda` | Afspraken voor een dag of periode (max. 14 dagen) uit iCloud en de werkagenda |
 | `afspraak_plannen` | Nieuwe afspraak in iCloud; eerst voorlezen, pas na "ja" opslaan (`bevestigd`) |
 | `mijn_dag` | Dagbriefing: eerste afspraak, training, rest van de dag, herinneringen die vervallen of over tijd zijn |
+| `scenes` | HomeKit-scènes die de connector kan aanzetten |
+| `scene` | Zet een scène aan, na bevestiging; alleen opdrachten die met "Scene " beginnen |
 | `herinnering_maken` | Nieuwe herinnering in Apple Herinneringen (standaard lijst "Herinneringen"), ook met `bevestigd` |
 
 De trainingstools lezen en schrijven de Postgres van health-dashboard als rol `mcp`
@@ -53,6 +55,10 @@ toestemming (Automatisering → Herinneringen); die moet één keer worden goedg
 achtergrond ververst: de Herinneringen-app doet tientallen seconden over lijsten met veel
 afgevinkte herinneringen. De werkagenda komt uit een ICS-feed (`tools/werkagenda.py`); extra bronnen komen in
 `AFSPRAAK_BRONNEN` in `tools/dag.py`.
+
+HomeKit-scènes lopen via Opdrachten op de Mini (`shortcuts run`). Alleen opdrachten waarvan
+de naam met "Scene " begint, kunnen worden uitgevoerd; maak voor een nieuwe scène een
+opdracht "Scene <naam>" die de HomeKit-scène aanzet.
 
 ## Draaien
 

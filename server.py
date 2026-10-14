@@ -18,7 +18,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from auth import SingleUserOAuthProvider
-from tools import agenda, carwash, herinneringen, training
+from tools import agenda, carwash, herinneringen, scenes, training
 from tools import dag as dagbriefing
 
 # ─── Config ────────────────────────────────────────────────────────────────────
@@ -194,6 +194,21 @@ async def _mijn_dag(
 ) -> str:
     """Korte briefing van Iwans dag om voor te lezen, inclusief de werkagenda: eerste afspraak, geplande training, de rest van de afspraken, en herinneringen die die dag vervallen of over tijd zijn. Haalt geen weer op; is er een weer-connector (zoals AccuWeather), voeg dan het weer van die dag toe."""
     return await dagbriefing.mijn_dag(dag)
+
+# ─── HomeKit-scènes (via Opdrachten) ───────────────────────────────────────────
+
+@mcp.tool(name="scenes", annotations=LEZEN)
+async def _scenes() -> str:
+    """De HomeKit-scènes die Iwan via de connector kan aanzetten (opdrachten in Opdrachten die met 'Scene ' beginnen)."""
+    return await scenes.scenes()
+
+@mcp.tool(name="scene", annotations=ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=True))
+async def _scene(
+    naam: Annotated[str, Field(description="Naam van de scène, bijvoorbeeld Thuiskomen.")],
+    bevestigd: Annotated[bool, Field(description="Alleen true nadat Iwan duidelijk ja heeft gezegd op de vraag of de scène aan moet.")] = False,
+) -> str:
+    """Zet een HomeKit-scène aan in Iwans huis. Roep eerst aan met bevestigd=false: dat doet niets en geeft de vraag om voor te lezen. Pas na een duidelijk ja: bevestigd=true. Voert uitsluitend opdrachten uit die met 'Scene ' beginnen, nooit een andere opdracht."""
+    return await scenes.scene(naam, bevestigd)
 
 # ─── HTTP-routes buiten MCP ────────────────────────────────────────────────────
 
