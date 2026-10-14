@@ -90,16 +90,24 @@ async def mijn_dag(dag: str | None = None) -> str:
 
     met_tijd = [a for a in afspraken if not a["hele_dag"]]
     hele_dag = [a for a in afspraken if a["hele_dag"]]
+    # Vandaag alleen wat nog komt of nu bezig is
+    voorbij = 0
+    if datum == _vandaag():
+        nu = datetime.now(TZ)
+        voorbij = sum(1 for a in met_tijd if a["eind"] <= nu)
+        met_tijd = [a for a in met_tijd if a["eind"] > nu]
     if met_tijd:
-        regels.append(f"Eerste afspraak: {_regel(met_tijd[0])}.")
+        nu_bezig = datum == _vandaag() and met_tijd[0]["begin"] <= datetime.now(TZ)
+        label = "Nu bezig" if nu_bezig else ("Volgende afspraak" if voorbij else "Eerste afspraak")
+        regels.append(f"{label}: {_regel(met_tijd[0])}.")
     if trainingen:
         regels.append("Training: " + "; ".join(trainingen) + ".")
     if hele_dag:
         regels.append("Hele dag: " + "; ".join(f"{a['titel']} ({a['agenda']})" for a in hele_dag) + ".")
     if len(met_tijd) > 1:
         regels.append("Daarna: " + "; ".join(_regel(a) for a in met_tijd[1:]) + ".")
-    if not afspraken:
-        regels.append("Geen afspraken.")
+    if not met_tijd and not hele_dag:
+        regels.append("Geen afspraken meer vandaag." if voorbij else "Geen afspraken.")
     regels.extend(_herinneringen_regels(datum))
     if fouten:
         regels.append("(" + " ".join(f if f.endswith(".") else f + "." for f in fouten) + ")")
