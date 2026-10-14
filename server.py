@@ -18,7 +18,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from auth import SingleUserOAuthProvider
-from tools import carwash, training
+from tools import agenda, carwash, training
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 # Op de Mini komen deze uit ~/.config/flower-and-the-dog-mcp/env (zie README).
@@ -58,7 +58,8 @@ mcp = MCPServer(
         "Persoonlijke tools van Iwan, vaak gebruikt via spraak (ook in de auto): houd antwoorden kort. "
         "Trainingen komen uit Iwans eigen trainingsdatabase. Vertelt Iwan hoe een training ging, "
         "sla dat dan op met notitie_bij_training; gaat het niet over één training (heup, slaap, "
-        "hoe hij zich voelt), gebruik status_notitie. Zeg daarna kort wat er is opgeslagen."
+        "hoe hij zich voelt), gebruik status_notitie. Zeg daarna kort wat er is opgeslagen. "
+        "Voor de agenda: lees een nieuwe afspraak altijd eerst voor en plan hem pas na een duidelijk ja."
     ),
     auth_server_provider=oauth,
     auth=AuthSettings(
@@ -138,6 +139,36 @@ async def status_notities(
 async def trainingsschema(dagen: Annotated[int, Field(description="Hoeveel dagen vooruit, 1 tot 60.")] = 7) -> str:
     """Wat er de komende dagen op Iwans trainingsschema staat."""
     return await training.trainingsschema(dagen)
+
+# ─── Agenda (iCloud CalDAV) ────────────────────────────────────────────────────
+
+AgendaDatum = Annotated[str | None, Field(description="'vandaag', 'morgen', 'overmorgen' of JJJJ-MM-DD.")]
+
+@mcp.tool(name="agenda", annotations=LEZEN)
+async def _agenda(
+    datum: AgendaDatum = None,
+    tot: Annotated[str | None, Field(description="Laatste dag van een periode (JJJJ-MM-DD, inclusief). Leeg = alleen 'datum'.")] = None,
+    dagen: Annotated[int | None, Field(description="In plaats van 'tot': aantal dagen vanaf 'datum', maximaal 14.")] = None,
+    ook_verjaardagen: Annotated[bool, Field(description="Ook verjaardagen en feestdagen meenemen, als die agenda's bestaan.")] = False,
+) -> str:
+    """Iwans afspraken voor een dag of periode (maximaal 14 dagen), uit de agenda's home, Family en Coach Leo. Zonder datum: vandaag."""
+    return await agenda.agenda(datum, tot, dagen, ook_verjaardagen)
+
+@mcp.tool(annotations=TOEVOEGEN)
+async def afspraak_plannen(
+    titel: Annotated[str, Field(description="Korte titel van de afspraak.")],
+    datum: Annotated[str, Field(description="'vandaag', 'morgen', 'overmorgen' of JJJJ-MM-DD.")],
+    starttijd: Annotated[str | None, Field(description="Begintijd, bijvoorbeeld 14:30. Leeg alleen bij hele_dag.")] = None,
+    duur_minuten: Annotated[int, Field(description="Duur in minuten.")] = 60,
+    hele_dag: Annotated[bool, Field(description="Afspraak voor de hele dag, zonder tijd.")] = False,
+    agenda_naam: Annotated[str, Field(description="Agenda: home (standaard), Family of Coach Leo.")] = "home",
+    locatie: Annotated[str | None, Field(description="Optioneel: waar.")] = None,
+    notitie: Annotated[str | None, Field(description="Optioneel: extra informatie.")] = None,
+    bevestigd: Annotated[bool, Field(description="Alleen true nadat Iwan de voorgelezen afspraak duidelijk met ja heeft bevestigd.")] = False,
+) -> str:
+    """Zet een nieuwe afspraak in Iwans agenda. Roep eerst aan met bevestigd=false: dat slaat niets op en geeft een samenvatting (met eventuele overlap). Lees die voor, vraag om een duidelijk ja, en roep pas daarna aan met bevestigd=true. Kan geen afspraken verwijderen of verplaatsen."""
+    return await agenda.afspraak_plannen(titel, datum, starttijd, duur_minuten, hele_dag, agenda_naam,
+                                         locatie, notitie, bevestigd)
 
 # ─── HTTP-routes buiten MCP ────────────────────────────────────────────────────
 

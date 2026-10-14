@@ -23,6 +23,8 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 | `status_notitie` | Notitie los van een training, bijv. over de heup |
 | `status_notities` | Recente statusnotities |
 | `trainingsschema` | Wat er de komende dagen gepland staat |
+| `agenda` | Afspraken voor een dag of periode (max. 14 dagen) uit iCloud |
+| `afspraak_plannen` | Nieuwe afspraak in iCloud; eerst voorlezen, pas na "ja" opslaan (`bevestigd`) |
 
 De trainingstools lezen en schrijven de Postgres van health-dashboard als rol `mcp`
 (`HEALTH_DATABASE_URL`). Die rol mag lezen uit `Run`, `RunSplit`, `StatusNote` en
@@ -37,6 +39,10 @@ GRANT UPDATE (notes, "updatedAt") ON "Run" TO mcp;
 GRANT INSERT ON "StatusNote" TO mcp;
 GRANT USAGE ON SEQUENCE "StatusNote_id_seq" TO mcp;
 ```
+
+De agendatools praten via CalDAV met iCloud (`caldav.icloud.com`), niet via de Agenda-app,
+zodat de Mini geen toegang tot Agenda hoeft te krijgen. Ze kunnen lezen en toevoegen, niet
+verwijderen of verplaatsen.
 
 ## Draaien
 
@@ -67,6 +73,9 @@ omzetten: `scripts/env-to-op.sh`.
 | `MCP_ALLOWED_REDIRECT_HOSTS` | `claude.ai,claude.com,localhost,127.0.0.1` | Toegestane OAuth-redirects |
 | `CARWASH_USERNAME`, `CARWASH_PASSWORD` | — | Carwash-portaal |
 | `HEALTH_DATABASE_URL` | — | Postgres van health-dashboard, als rol `mcp` (poort 5433) |
+| `ICLOUD_CALDAV_USERNAME`, `ICLOUD_CALDAV_PASSWORD` | — | Apple ID en app-specifiek wachtwoord voor iCloud CalDAV |
+| `AGENDA_CALENDARS` | `home,Family,Coach Leo` | Agenda's die `agenda` leest |
+| `AGENDA_EXTRA_CALENDARS` | `Verjaardagen,Feestdagen` | Extra bij `ook_verjaardagen` |
 
 ## Koppelen
 
