@@ -265,3 +265,18 @@ async def trainingsschema(dagen: int = 7) -> str:
         omschrijving = f" ({r['description']})" if r["description"] else ""
         regels.append(f"{_datum(r['date'])}: {r['type']}{km}{omschrijving}.")
     return "\n".join(regels)
+
+
+async def geplande_trainingen(dag: date) -> list[str]:
+    """De trainingen die op `dag` in het schema staan, als korte zinnen (voor mijn_dag)."""
+    async with await _connect() as conn:
+        rows = await (await conn.execute(
+            'SELECT type, "plannedKm", description FROM "TrainingPlanEntry" WHERE date = %s ORDER BY id',
+            (dag,),
+        )).fetchall()
+    regels = []
+    for r in rows:
+        km = f" {_km(r['plannedKm'] * 1000)} km" if r["plannedKm"] else ""
+        omschrijving = f" ({r['description']})" if r["description"] else ""
+        regels.append(f"{r['type']}{km}{omschrijving}")
+    return regels

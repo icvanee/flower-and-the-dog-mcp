@@ -25,6 +25,7 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 | `trainingsschema` | Wat er de komende dagen gepland staat |
 | `agenda` | Afspraken voor een dag of periode (max. 14 dagen) uit iCloud |
 | `afspraak_plannen` | Nieuwe afspraak in iCloud; eerst voorlezen, pas na "ja" opslaan (`bevestigd`) |
+| `mijn_dag` | Dagbriefing: eerste afspraak, training, rest van de dag, herinneringen die vervallen of over tijd zijn |
 | `herinnering_maken` | Nieuwe herinnering in Apple Herinneringen (standaard lijst "Herinneringen"), ook met `bevestigd` |
 
 De trainingstools lezen en schrijven de Postgres van health-dashboard als rol `mcp`
@@ -48,6 +49,10 @@ verwijderen of verplaatsen.
 Herinneringen staan niet in CalDAV, dus `herinnering_maken` gaat via de Herinneringen-app op
 de Mini (AppleScript). De eerste aanroep vanuit launchd vraagt op het scherm van de Mini om
 toestemming (Automatisering → Herinneringen); die moet één keer worden goedgekeurd.
+`mijn_dag` leest de open herinneringen uit een cache die de server elke 10 minuten op de
+achtergrond ververst: de Herinneringen-app doet tientallen seconden over lijsten met veel
+afgevinkte herinneringen. Een extra agendabron (bijv. de werkagenda als ICS-URL) komt in
+`AFSPRAAK_BRONNEN` in `tools/dag.py`.
 
 ## Draaien
 

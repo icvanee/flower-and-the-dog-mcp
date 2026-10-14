@@ -12,7 +12,10 @@ Alleen toevoegen; verwijderen of wijzigen kan niet.
 """
 
 import asyncio
+import logging
 import subprocess
+import threading
+import time
 import unicodedata
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -21,6 +24,41 @@ from tools.agenda import _dag, _parse_datum, _parse_tijd
 
 TZ = ZoneInfo("Europe/Amsterdam")
 STANDAARD_LIJST = "Herinneringen"  # niet "Family ⚠️": die is gedeeld met het gezin
+
+# Open herinneringen met een datum, per lijst. Eigenschappen in één keer ophalen is
+# veel sneller dan per herinnering, maar het filter op `completed` blijft traag bij
+# lijsten met honderden afgevinkte herinneringen (tientallen seconden). Daarom leest
+# mijn_dag uit een cache die op de achtergrond ververst wordt.
+OPEN_SCRIPT = """
+on run argv
+  set uit to {}
+  tell application "Reminders"
+    repeat with l in lists
+      set lnaam to name of l
+      if (count of (reminders of l whose completed is false)) > 0 then
+        set namen to name of (reminders of l whose completed is false)
+        set datums to due date of (reminders of l whose completed is false)
+        repeat with i from 1 to count of namen
+          set d to item i of datums
+          if d is not missing value then
+            set end of uit to lnaam & tab & (item i of namen) & tab & ((year of d) as string) & tab & ¬
+              ((month of d) as integer as string) & tab & ((day of d) as string) & tab & ¬
+              ((hours of d) as string) & tab & ((minutes of d) as string)
+          end if
+        end repeat
+      end if
+    end repeat
+  end tell
+  set AppleScript's text item delimiters to linefeed
+  return uit as string
+end run
+"""
+VERVERS_SECONDEN = 600
+
+log = logging.getLogger("toolbox")
+_open_cache: list[dict] | None = None
+_open_cache_at = 0.0
+_ververs_nu = threading.Event()
 
 LIJSTEN_SCRIPT = 'tell application "Reminders" to get name of every list'
 
@@ -52,9 +90,9 @@ end run
 """
 
 
-def _osascript(script: str, *args: str) -> str:
+def _osascript(script: str, *args: str, timeout: int = 30) -> str:
     for poging in range(2):
-        p = subprocess.run(["osascript", "-e", script, *args], capture_output=True, text=True, timeout=30)
+        p = subprocess.run(["osascript", "-e", script, *args], capture_output=True, text=True, timeout=timeout)
         if p.returncode == 0:
             return p.stdout.strip()
         if "-609" in p.stderr and poging == 0:
@@ -77,6 +115,45 @@ def _norm(naam: str) -> str:
 
 def _lijsten() -> list[str]:
     return [l.strip() for l in _osascript(LIJSTEN_SCRIPT).split(", ") if l.strip()]
+
+
+def _open_herinneringen_sync() -> list[dict]:
+    items = []
+    for regel in _osascript(OPEN_SCRIPT, timeout=180).splitlines():
+        delen = regel.split("\t")
+        if len(delen) != 7:
+            continue
+        lijst, titel, j, mnd, d, h, m = delen
+        moment = datetime(int(j), int(mnd), int(d), int(h), int(m), tzinfo=TZ)
+        # Herinneringen zonder tijd staan op middernacht
+        items.append({"lijst": lijst, "titel": titel, "moment": moment, "hele_dag": (moment.hour, moment.minute) == (0, 0)})
+    return items
+
+
+def _ververs_lus():
+    global _open_cache, _open_cache_at
+    while True:
+        try:
+            begin = time.monotonic()
+            _open_cache = _open_herinneringen_sync()
+            _open_cache_at = time.monotonic()
+            log.info("herinneringen ververst: %d open met datum (%.0fs)", len(_open_cache), _open_cache_at - begin)
+        except Exception as e:  # blijven proberen; mijn_dag meldt dan dat ze ontbreken
+            log.warning("herinneringen verversen mislukt: %s", e)
+        _ververs_nu.wait(VERVERS_SECONDEN)
+        _ververs_nu.clear()
+
+
+def start_verversen():
+    """Start het verversen van de cache op de achtergrond (eenmaal, bij het starten van de server)."""
+    threading.Thread(target=_ververs_lus, name="herinneringen", daemon=True).start()
+
+
+def open_herinneringen() -> tuple[list[dict] | None, float | None]:
+    """(open herinneringen met datum, leeftijd van de cache in minuten), of (None, None) als die er nog niet is."""
+    if _open_cache is None:
+        return None, None
+    return _open_cache, (time.monotonic() - _open_cache_at) / 60
 
 
 def _maken_sync(titel: str, datum: str | None, tijd: str | None, lijst: str, notitie: str | None,
@@ -115,6 +192,7 @@ def _maken_sync(titel: str, datum: str | None, tijd: str | None, lijst: str, not
                 "Roep daarna opnieuw aan met bevestigd=true.")
 
     _osascript(MAAK_SCRIPT, lijstnaam, titel, (notitie or "").strip(), soort, *delen)
+    _ververs_nu.set()
     return f"Opgeslagen: {samenvatting}."
 
 

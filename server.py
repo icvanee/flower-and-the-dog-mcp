@@ -19,6 +19,7 @@ from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Re
 
 from auth import SingleUserOAuthProvider
 from tools import agenda, carwash, herinneringen, training
+from tools import dag as dagbriefing
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 # Op de Mini komen deze uit ~/.config/flower-and-the-dog-mcp/env (zie README).
@@ -185,6 +186,15 @@ async def _herinnering_maken(
     """Zet een herinnering in Apple Herinneringen, met een melding als er een tijd is. Roep eerst aan met bevestigd=false: dat slaat niets op en geeft een samenvatting. Lees die voor, vraag om een duidelijk ja, en roep pas daarna aan met bevestigd=true. Kan geen herinneringen verwijderen of wijzigen."""
     return await herinneringen.herinnering_maken(titel, datum, tijd, lijst, notitie, bevestigd)
 
+# ─── Dagbriefing ───────────────────────────────────────────────────────────────
+
+@mcp.tool(name="mijn_dag", annotations=LEZEN)
+async def _mijn_dag(
+    dag: Annotated[str | None, Field(description="'vandaag' (standaard), 'morgen' of JJJJ-MM-DD.")] = None,
+) -> str:
+    """Korte briefing van Iwans dag om voor te lezen: eerste afspraak, geplande training, de rest van de afspraken, en herinneringen die die dag vervallen of over tijd zijn. Haalt geen weer op; is er een weer-connector (zoals AccuWeather), voeg dan het weer van die dag toe."""
+    return await dagbriefing.mijn_dag(dag)
+
 # ─── HTTP-routes buiten MCP ────────────────────────────────────────────────────
 
 @mcp.custom_route("/health", methods=["GET"])
@@ -254,6 +264,7 @@ app = mcp.streamable_http_app(
 )
 
 if __name__ == "__main__":
+    herinneringen.start_verversen()
     log_config = uvicorn.config.LOGGING_CONFIG
     for formatter in log_config["formatters"].values():
         formatter["fmt"] = "%(asctime)s " + formatter["fmt"]
