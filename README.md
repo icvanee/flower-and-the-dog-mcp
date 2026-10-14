@@ -23,7 +23,7 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 | `status_notitie` | Notitie los van een training, bijv. over de heup |
 | `status_notities` | Recente statusnotities |
 | `trainingsschema` | Wat er de komende dagen gepland staat |
-| `agenda` | Afspraken voor een dag of periode (max. 14 dagen) uit iCloud |
+| `agenda` | Afspraken voor een dag of periode (max. 14 dagen) uit iCloud en de werkagenda |
 | `afspraak_plannen` | Nieuwe afspraak in iCloud; eerst voorlezen, pas na "ja" opslaan (`bevestigd`) |
 | `mijn_dag` | Dagbriefing: eerste afspraak, training, rest van de dag, herinneringen die vervallen of over tijd zijn |
 | `herinnering_maken` | Nieuwe herinnering in Apple Herinneringen (standaard lijst "Herinneringen"), ook met `bevestigd` |
@@ -51,7 +51,7 @@ de Mini (AppleScript). De eerste aanroep vanuit launchd vraagt op het scherm van
 toestemming (Automatisering → Herinneringen); die moet één keer worden goedgekeurd.
 `mijn_dag` leest de open herinneringen uit een cache die de server elke 10 minuten op de
 achtergrond ververst: de Herinneringen-app doet tientallen seconden over lijsten met veel
-afgevinkte herinneringen. Een extra agendabron (bijv. de werkagenda als ICS-URL) komt in
+afgevinkte herinneringen. De werkagenda komt uit een ICS-feed (`tools/werkagenda.py`); extra bronnen komen in
 `AFSPRAAK_BRONNEN` in `tools/dag.py`.
 
 ## Draaien
@@ -86,6 +86,7 @@ omzetten: `scripts/env-to-op.sh`.
 | `ICLOUD_CALDAV_USERNAME`, `ICLOUD_CALDAV_PASSWORD` | — | Apple ID en app-specifiek wachtwoord voor iCloud CalDAV |
 | `AGENDA_CALENDARS` | `home,Family,Coach Leo` | Agenda's die `agenda` leest |
 | `AGENDA_EXTRA_CALENDARS` | `Verjaardagen,Feestdagen` | Extra bij `ook_verjaardagen` |
+| `WORK_CALENDAR_ICS_URL` | — | Gepubliceerde Outlook-ICS-feed van de werkagenda (alleen lezen, 15 min gecachet). Bevat een geheim token: nooit loggen |
 
 ## Koppelen
 

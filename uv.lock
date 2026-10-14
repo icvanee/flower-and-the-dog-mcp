@@ -382,6 +382,7 @@ dependencies = [
     { name = "mcp" },
     { name = "openpyxl" },
     { name = "psycopg", extra = ["binary"] },
+    { name = "recurring-ical-events" },
     { name = "uvicorn" },
 ]
 
@@ -393,6 +394,7 @@ requires-dist = [
     { name = "mcp", specifier = "==2.2.*" },
     { name = "openpyxl", specifier = ">=3.1.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
+    { name = "recurring-ical-events", specifier = ">=3" },
     { name = "uvicorn", specifier = ">=0.30.0" },
 ]
 

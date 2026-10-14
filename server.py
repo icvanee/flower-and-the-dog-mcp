@@ -153,7 +153,7 @@ async def _agenda(
     dagen: Annotated[int | None, Field(description="In plaats van 'tot': aantal dagen vanaf 'datum', maximaal 14.")] = None,
     ook_verjaardagen: Annotated[bool, Field(description="Ook verjaardagen en feestdagen meenemen, als die agenda's bestaan.")] = False,
 ) -> str:
-    """Iwans afspraken voor een dag of periode (maximaal 14 dagen), uit de agenda's home, Family en Coach Leo. Zonder datum: vandaag."""
+    """Iwans afspraken voor een dag of periode (maximaal 14 dagen), uit de agenda's home, Family en Coach Leo en zijn werkagenda (label 'werk'). Zonder datum: vandaag."""
     return await agenda.agenda(datum, tot, dagen, ook_verjaardagen)
 
 @mcp.tool(annotations=TOEVOEGEN)
@@ -168,7 +168,7 @@ async def afspraak_plannen(
     notitie: Annotated[str | None, Field(description="Optioneel: extra informatie.")] = None,
     bevestigd: Annotated[bool, Field(description="Alleen true nadat Iwan de voorgelezen afspraak duidelijk met ja heeft bevestigd.")] = False,
 ) -> str:
-    """Zet een nieuwe afspraak in Iwans agenda. Roep eerst aan met bevestigd=false: dat slaat niets op en geeft een samenvatting (met eventuele overlap). Lees die voor, vraag om een duidelijk ja, en roep pas daarna aan met bevestigd=true. Kan geen afspraken verwijderen of verplaatsen."""
+    """Zet een nieuwe afspraak in Iwans agenda (home, Family of Coach Leo; de werkagenda kan alleen gelezen worden). Roep eerst aan met bevestigd=false: dat slaat niets op en geeft een samenvatting (met eventuele overlap). Lees die voor, vraag om een duidelijk ja, en roep pas daarna aan met bevestigd=true. Kan geen afspraken verwijderen of verplaatsen."""
     return await agenda.afspraak_plannen(titel, datum, starttijd, duur_minuten, hele_dag, agenda_naam,
                                          locatie, notitie, bevestigd)
 
@@ -192,7 +192,7 @@ async def _herinnering_maken(
 async def _mijn_dag(
     dag: Annotated[str | None, Field(description="'vandaag' (standaard), 'morgen' of JJJJ-MM-DD.")] = None,
 ) -> str:
-    """Korte briefing van Iwans dag om voor te lezen: eerste afspraak, geplande training, de rest van de afspraken, en herinneringen die die dag vervallen of over tijd zijn. Haalt geen weer op; is er een weer-connector (zoals AccuWeather), voeg dan het weer van die dag toe."""
+    """Korte briefing van Iwans dag om voor te lezen, inclusief de werkagenda: eerste afspraak, geplande training, de rest van de afspraken, en herinneringen die die dag vervallen of over tijd zijn. Haalt geen weer op; is er een weer-connector (zoals AccuWeather), voeg dan het weer van die dag toe."""
     return await dagbriefing.mijn_dag(dag)
 
 # ─── HTTP-routes buiten MCP ────────────────────────────────────────────────────

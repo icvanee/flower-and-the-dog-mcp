@@ -13,27 +13,32 @@ agenda._afspraken geeft: titel, agenda, locatie, hele_dag, begin, eind.
 import asyncio
 from datetime import datetime, timedelta
 
-from tools import agenda, herinneringen, training
+from tools import agenda, herinneringen, training, werkagenda
 from tools.agenda import TZ, _dag, _parse_datum, _regel, _vandaag
 
 
-def _icloud(van: datetime, tot: datetime) -> list[dict]:
+def _icloud(van: datetime, tot: datetime) -> tuple[list[dict], str | None]:
     afspraken, _ = agenda._afspraken(agenda._standaard_agendas(), van, tot)
-    return afspraken
+    return afspraken, None
 
 
-AFSPRAAK_BRONNEN = [_icloud]
+# Elke bron: (van, tot) -> (afspraken, melding of None)
+AFSPRAAK_BRONNEN = [_icloud, werkagenda.afspraken]
 
 
 def _afspraken_sync(van: datetime, tot: datetime) -> tuple[list[dict], list[str]]:
-    alle, fouten = [], []
+    alle, meldingen = [], []
     for bron in AFSPRAAK_BRONNEN:
         try:
-            alle.extend(bron(van, tot))
+            afspraken, melding = bron(van, tot)
+            alle.extend(afspraken)
+            if melding:
+                meldingen.append(melding)
         except Exception as e:
-            fouten.append(f"{bron.__name__.strip('_')}: {e}")
-    alle.sort(key=lambda a: (not a["hele_dag"], a["begin"] if not a["hele_dag"] else van))
-    return alle, fouten
+            meldingen.append(f"{bron.__module__.rsplit('.', 1)[-1]}: {type(e).__name__}")
+    alle = werkagenda.zonder_dubbele(alle)
+    alle.sort(key=agenda.sorteer)
+    return alle, meldingen
 
 
 def _herinneringen_regels(dag) -> list[str]:
@@ -97,5 +102,5 @@ async def mijn_dag(dag: str | None = None) -> str:
         regels.append("Geen afspraken.")
     regels.extend(_herinneringen_regels(datum))
     if fouten:
-        regels.append("(Niet alles kon worden gelezen: " + "; ".join(fouten) + ".)")
+        regels.append("(" + " ".join(f if f.endswith(".") else f + "." for f in fouten) + ")")
     return "\n".join(regels)

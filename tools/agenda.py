@@ -10,12 +10,16 @@ Antwoorden zijn korte Nederlandse tekst, omdat ze vaak worden voorgelezen.
 """
 
 import asyncio
+import logging
 import os
 import time
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import caldav
+
+# caldav logt bij "gerepareerde" iCalendar-data de hele afspraak; die horen niet in het serverlog
+logging.getLogger("caldav").setLevel(logging.ERROR)
 
 TZ = ZoneInfo("Europe/Amsterdam")
 CALDAV_URL = "https://caldav.icloud.com"
@@ -128,10 +132,22 @@ def _afspraken(agendas: list[str], van: datetime, tot: datetime) -> tuple[list[d
                 "begin": begin,
                 "eind": eind,
             })
-    # Per dag: eerst hele-dag-afspraken, dan op begintijd
-    resultaat.sort(key=lambda a: (_begindag(a), not a["hele_dag"],
-                                  0 if a["hele_dag"] else a["begin"].hour * 60 + a["begin"].minute))
+    resultaat.sort(key=sorteer)
     return resultaat, onbekend
+
+
+def sorteer(a: dict):
+    """Per dag: eerst hele-dag-afspraken, dan op begintijd."""
+    return (_begindag(a), not a["hele_dag"], 0 if a["hele_dag"] else a["begin"].hour * 60 + a["begin"].minute)
+
+
+def _met_werk(afspraken: list[dict], van: datetime, tot: datetime) -> tuple[list[dict], str | None]:
+    """Voegt de werkagenda (ICS, alleen lezen) toe, zonder dubbelingen."""
+    from tools import werkagenda  # hier, want werkagenda importeert deze module
+    werk, melding = werkagenda.afspraken(van, tot)
+    alle = werkagenda.zonder_dubbele(afspraken + werk)
+    alle.sort(key=sorteer)
+    return alle, melding
 
 
 def _begindag(a: dict) -> date:
@@ -171,6 +187,7 @@ def _agenda_sync(datum: str | None, tot: str | None, dagen: int | None, ook_verj
     van = datetime.combine(begin, datetime.min.time(), TZ)
     tot_dt = datetime.combine(einde + timedelta(days=1), datetime.min.time(), TZ)
     afspraken, onbekend = _afspraken(agendas, van, tot_dt)
+    afspraken, werk_melding = _met_werk(afspraken, van, tot_dt)
     # Onbekende extra agenda's (verjaardagen/feestdagen) zijn vaak geen CalDAV-agenda; niet melden
     onbekend = [n for n in onbekend if n in _standaard_agendas()]
 
@@ -190,6 +207,8 @@ def _agenda_sync(datum: str | None, tot: str | None, dagen: int | None, ook_verj
         tekst = kop + "\n" + "\n".join(regels)
     if onbekend:
         tekst += f"\n(Agenda niet gevonden: {', '.join(onbekend)}.)"
+    if werk_melding:
+        tekst += f"\n({werk_melding})"
     return tekst
 
 
@@ -215,6 +234,8 @@ def _plannen_sync(titel: str, datum: str, starttijd: str | None, duur_minuten: i
     alle = _alle_agendas()
     cal = alle.get(agenda_naam.strip().lower())
     if cal is None:
+        if agenda_naam.strip().lower() == "werk":
+            return "In de werkagenda kan ik niets zetten, die kan ik alleen lezen."
         return f"Agenda '{agenda_naam}' bestaat niet. Kies uit: {', '.join(_standaard_agendas())}."
 
     if hele_dag:
@@ -235,6 +256,7 @@ def _plannen_sync(titel: str, datum: str, starttijd: str | None, duur_minuten: i
         samenvatting += f", locatie {locatie.strip()}"
 
     overlap, _ = _afspraken(_standaard_agendas(), van, tot)
+    overlap, _ = _met_werk(overlap, van, tot)
     if not hele_dag:
         overlap = [a for a in overlap if not a["hele_dag"]]
     waarschuwing = ""
