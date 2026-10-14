@@ -25,6 +25,7 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 | `trainingsschema` | Wat er de komende dagen gepland staat |
 | `agenda` | Afspraken voor een dag of periode (max. 14 dagen) uit iCloud |
 | `afspraak_plannen` | Nieuwe afspraak in iCloud; eerst voorlezen, pas na "ja" opslaan (`bevestigd`) |
+| `herinnering_maken` | Nieuwe herinnering in Apple Herinneringen (standaard lijst "Herinneringen"), ook met `bevestigd` |
 
 De trainingstools lezen en schrijven de Postgres van health-dashboard als rol `mcp`
 (`HEALTH_DATABASE_URL`). Die rol mag lezen uit `Run`, `RunSplit`, `StatusNote` en
@@ -43,6 +44,10 @@ GRANT USAGE ON SEQUENCE "StatusNote_id_seq" TO mcp;
 De agendatools praten via CalDAV met iCloud (`caldav.icloud.com`), niet via de Agenda-app,
 zodat de Mini geen toegang tot Agenda hoeft te krijgen. Ze kunnen lezen en toevoegen, niet
 verwijderen of verplaatsen.
+
+Herinneringen staan niet in CalDAV, dus `herinnering_maken` gaat via de Herinneringen-app op
+de Mini (AppleScript). De eerste aanroep vanuit launchd vraagt op het scherm van de Mini om
+toestemming (Automatisering → Herinneringen); die moet één keer worden goedgekeurd.
 
 ## Draaien
 

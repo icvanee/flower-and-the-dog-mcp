@@ -18,7 +18,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from auth import SingleUserOAuthProvider
-from tools import agenda, carwash, training
+from tools import agenda, carwash, herinneringen, training
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 # Op de Mini komen deze uit ~/.config/flower-and-the-dog-mcp/env (zie README).
@@ -59,7 +59,8 @@ mcp = MCPServer(
         "Trainingen komen uit Iwans eigen trainingsdatabase. Vertelt Iwan hoe een training ging, "
         "sla dat dan op met notitie_bij_training; gaat het niet over één training (heup, slaap, "
         "hoe hij zich voelt), gebruik status_notitie. Zeg daarna kort wat er is opgeslagen. "
-        "Voor de agenda: lees een nieuwe afspraak altijd eerst voor en plan hem pas na een duidelijk ja."
+        "Voor de agenda en herinneringen: lees een nieuwe afspraak of herinnering altijd eerst voor "
+        "en sla hem pas op na een duidelijk ja."
     ),
     auth_server_provider=oauth,
     auth=AuthSettings(
@@ -169,6 +170,20 @@ async def afspraak_plannen(
     """Zet een nieuwe afspraak in Iwans agenda. Roep eerst aan met bevestigd=false: dat slaat niets op en geeft een samenvatting (met eventuele overlap). Lees die voor, vraag om een duidelijk ja, en roep pas daarna aan met bevestigd=true. Kan geen afspraken verwijderen of verplaatsen."""
     return await agenda.afspraak_plannen(titel, datum, starttijd, duur_minuten, hele_dag, agenda_naam,
                                          locatie, notitie, bevestigd)
+
+# ─── Herinneringen (Apple Herinneringen-app) ───────────────────────────────────
+
+@mcp.tool(name="herinnering_maken", annotations=TOEVOEGEN)
+async def _herinnering_maken(
+    titel: Annotated[str, Field(description="Wat Iwan moet onthouden of doen.")],
+    datum: Annotated[str | None, Field(description="Optioneel: 'vandaag', 'morgen', 'overmorgen' of JJJJ-MM-DD.")] = None,
+    tijd: Annotated[str | None, Field(description="Optioneel: tijd van de melding, bijvoorbeeld 9:00. Zonder datum: vandaag.")] = None,
+    lijst: Annotated[str, Field(description="Lijst: Herinneringen (standaard), India, Verjaardagslijst, L'Estartit. Family alleen als Iwan dat expliciet vraagt, die is gedeeld met het gezin.")] = herinneringen.STANDAARD_LIJST,
+    notitie: Annotated[str | None, Field(description="Optioneel: extra informatie.")] = None,
+    bevestigd: Annotated[bool, Field(description="Alleen true nadat Iwan de voorgelezen herinnering duidelijk met ja heeft bevestigd.")] = False,
+) -> str:
+    """Zet een herinnering in Apple Herinneringen, met een melding als er een tijd is. Roep eerst aan met bevestigd=false: dat slaat niets op en geeft een samenvatting. Lees die voor, vraag om een duidelijk ja, en roep pas daarna aan met bevestigd=true. Kan geen herinneringen verwijderen of wijzigen."""
+    return await herinneringen.herinnering_maken(titel, datum, tijd, lijst, notitie, bevestigd)
 
 # ─── HTTP-routes buiten MCP ────────────────────────────────────────────────────
 
