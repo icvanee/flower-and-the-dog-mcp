@@ -195,7 +195,10 @@ def _agenda_sync(datum: str | None, tot: str | None, dagen: int | None, ook_verj
 
 async def agenda(datum: str | None = None, tot: str | None = None, dagen: int | None = None,
                  ook_verjaardagen: bool = False) -> str:
-    return await asyncio.to_thread(_agenda_sync, datum, tot, dagen, ook_verjaardagen)
+    try:
+        return await asyncio.to_thread(_agenda_sync, datum, tot, dagen, ook_verjaardagen)
+    except ValueError as e:
+        return str(e)
 
 
 # ─── Afspraak plannen ──────────────────────────────────────────────────────────
@@ -254,5 +257,8 @@ def _plannen_sync(titel: str, datum: str, starttijd: str | None, duur_minuten: i
 async def afspraak_plannen(titel: str, datum: str, starttijd: str | None = None, duur_minuten: int = 60,
                            hele_dag: bool = False, agenda_naam: str = "home", locatie: str | None = None,
                            notitie: str | None = None, bevestigd: bool = False) -> str:
-    return await asyncio.to_thread(_plannen_sync, titel, datum, starttijd, duur_minuten, hele_dag,
-                                   agenda_naam, locatie, notitie, bevestigd)
+    try:
+        return await asyncio.to_thread(_plannen_sync, titel, datum, starttijd, duur_minuten, hele_dag,
+                                       agenda_naam, locatie, notitie, bevestigd)
+    except ValueError as e:
+        return f"Niets opgeslagen. {e}"
