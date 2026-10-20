@@ -322,7 +322,9 @@ async def _cadans_per_km(conn, run_id: str) -> list[tuple[int, int]]:
         return []
     rows = await (await conn.execute(
         'SELECT floor("distanceM" / 1000)::int + 1 AS km, avg("cadenceSpm") AS c FROM "RunSample" '
-        'WHERE "runId" = %s AND "cadenceSpm" >= %s AND "distanceM" IS NOT NULL GROUP BY 1 ORDER BY 1',
+        'WHERE "runId" = %s AND "cadenceSpm" >= %s AND "distanceM" IS NOT NULL GROUP BY 1 '
+        # Een restje na de laatste hele km (een paar meter) is geen km
+        'HAVING max("distanceM") - min("distanceM") >= 200 ORDER BY 1',
         (run_id, MIN_CADANS),
     )).fetchall()
     return [(r["km"], round(r["c"])) for r in rows]
