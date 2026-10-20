@@ -42,6 +42,7 @@ RUN_COLUMNS = """
     "maxHeartRate", "avgPaceSecPerKm", "hrDriftBpm", "elevationGainMeters",
     "hrZone1Sec", "hrZone2Sec", "hrZone3Sec", "hrZone4Sec", "hrZone5Sec",
     "weatherTempCelsius", source, notes, "logbookNotes",
+    "avgCadenceSpm", "maxCadenceSpm", "avgStrideLengthM", "stepCount",
     ("startTime" AT TIME ZONE 'UTC') AT TIME ZONE 'Europe/Amsterdam' AS start_local
 """
 
@@ -88,6 +89,19 @@ def _samenvatting(run: dict) -> str:
     if run["avgHeartRate"]:
         delen.append(f"hartslag {round(run['avgHeartRate'])}")
     return ", ".join(delen) + "."
+
+
+# Cadans onder de 100 stappen per minuut is een meetfout (er staan nullen in de data)
+MIN_CADANS = 100
+
+
+def _cadans(run: dict) -> int | None:
+    v = run.get("avgCadenceSpm")
+    return round(v) if v and v >= MIN_CADANS else None
+
+
+def _staplengte(m: float | None) -> str:
+    return f"{m:.2f}".replace(".", ",") + " m"
 
 
 def _parse_datum(datum: str | None) -> date | None:
@@ -143,6 +157,9 @@ async def recente_trainingen(aantal: int = 5, soort: str = "running") -> str:
     regels = []
     for r in rows:
         regel = _samenvatting(r)
+        if r["workoutType"] == "running":
+            cadans = _cadans(r)
+            regel = regel[:-1] + (f", cadans {cadans}." if cadans else ", geen cadans gemeten.")
         if r["notes"] or r["logbookNotes"]:
             regel += " Heeft een notitie."
         regels.append(regel)
@@ -160,6 +177,7 @@ async def training_details(datum: str | None = None, training_id: str | None = N
         plan = await (await conn.execute(
             'SELECT type, "plannedKm", description FROM "TrainingPlanEntry" WHERE date = %s', (run["date"],)
         )).fetchall()
+        cadans_per_km = await _cadans_per_km(conn, run["id"])
 
     regels = [_samenvatting(run)]
     extra = []
@@ -181,6 +199,21 @@ async def training_details(datum: str | None = None, training_id: str | None = N
         regels.append("Hartslagzones: " + ", ".join(
             f"zone {i} {round(100 * sec / totaal)}%" for i, sec in enumerate(zone_sec, 1) if round(100 * sec / totaal)
         ) + ".")
+    if run["workoutType"] == "running":
+        cadans = _cadans(run)
+        if cadans:
+            delen = [f"Cadans gemiddeld {cadans}"]
+            if run["maxCadenceSpm"] and run["maxCadenceSpm"] >= MIN_CADANS:
+                delen.append(f"max {round(run['maxCadenceSpm'])}")
+        else:
+            delen = ["Geen cadans gemeten"]
+        if run["avgStrideLengthM"]:
+            delen.append(f"staplengte {_staplengte(run['avgStrideLengthM'])}")
+        if cadans and run["stepCount"]:
+            delen.append(f"{round(run['stepCount'])} stappen")
+        regels.append(", ".join(delen) + ".")
+        if cadans_per_km:
+            regels.append("Cadans per km: " + "; ".join(f"{km}: {c}" for km, c in cadans_per_km) + ".")
     if splits:
         regels.append("Per km: " + "; ".join(
             f"{s['km']}: {_duur(s['paceSecPerKm'])}" + (f" ({round(s['avgHrBpm'])})" if s["avgHrBpm"] else "")
@@ -280,3 +313,81 @@ async def geplande_trainingen(dag: date) -> list[str]:
         omschrijving = f" ({r['description']})" if r["description"] else ""
         regels.append(f"{r['type']}{km}{omschrijving}")
     return regels
+
+
+async def _cadans_per_km(conn, run_id: str) -> list[tuple[int, int]]:
+    """Gemiddelde cadans per kilometer uit RunSample, als de rol daar mag lezen; anders leeg."""
+    mag = await (await conn.execute("SELECT has_table_privilege(current_user, '\"RunSample\"', 'SELECT') AS mag")).fetchone()
+    if not mag["mag"]:
+        return []
+    rows = await (await conn.execute(
+        'SELECT floor("distanceM" / 1000)::int + 1 AS km, avg("cadenceSpm") AS c FROM "RunSample" '
+        'WHERE "runId" = %s AND "cadenceSpm" >= %s AND "distanceM" IS NOT NULL GROUP BY 1 ORDER BY 1',
+        (run_id, MIN_CADANS),
+    )).fetchall()
+    return [(r["km"], round(r["c"])) for r in rows]
+
+
+async def cadans_trend(maanden: int = 6, per: str = "maand", tempo_banden: bool = True) -> str:
+    """Gemiddelde cadans per week of maand, met staplengte, tempo en hartslag; plus rustig vs. snel."""
+    maanden = max(1, min(maanden, 60))
+    eenheid = "week" if per == "week" else "month"
+    async with await _connect() as conn:
+        rows = await (await conn.execute(
+            'SELECT date_trunc(%(eenheid)s, date)::date AS periode, count(*) AS n, '
+            'avg("avgCadenceSpm") AS cadans, avg("avgStrideLengthM") AS stap, '
+            'avg("avgPaceSecPerKm") AS tempo, avg("avgHeartRate") AS hartslag '
+            'FROM "Run" WHERE "workoutType" = \'running\' AND "avgCadenceSpm" >= %(min)s '
+            "AND date >= (current_date - make_interval(months => %(maanden)s)) "
+            "GROUP BY 1 ORDER BY 1",
+            {"eenheid": eenheid, "min": MIN_CADANS, "maanden": maanden},
+        )).fetchall()
+        banden = []
+        if tempo_banden and rows:
+            # Rustig/snel ten opzichte van Iwans eigen runs in deze periode (langzaamste en snelste derde)
+            banden = await (await conn.execute(
+                'WITH r AS (SELECT "avgCadenceSpm" c, "avgStrideLengthM" s, "avgPaceSecPerKm" p, "avgHeartRate" h '
+                'FROM "Run" WHERE "workoutType" = \'running\' AND "avgCadenceSpm" >= %(min)s '
+                'AND "avgPaceSecPerKm" IS NOT NULL AND date >= (current_date - make_interval(months => %(maanden)s))), '
+                "g AS (SELECT percentile_cont(0.33) WITHIN GROUP (ORDER BY p) p33, "
+                "percentile_cont(0.67) WITHIN GROUP (ORDER BY p) p67 FROM r) "
+                "SELECT CASE WHEN p >= p67 THEN 'rustig' WHEN p <= p33 THEN 'snel' ELSE 'midden' END AS band, "
+                "count(*) n, avg(c) c, avg(s) s, avg(p) p, avg(h) h, max(p33) p33, max(p67) p67 "
+                "FROM r, g GROUP BY 1",
+                {"min": MIN_CADANS, "maanden": maanden},
+            )).fetchall()
+        laatste = await (await conn.execute(
+            'SELECT max(date) AS d FROM "Run" WHERE "workoutType" = \'running\' AND "avgCadenceSpm" >= %s', (MIN_CADANS,)
+        )).fetchone()
+        zonder = await (await conn.execute(
+            'SELECT count(*) AS n FROM "Run" WHERE "workoutType" = \'running\' AND date > %s', (laatste["d"],)
+        )).fetchone() if laatste["d"] else {"n": 0}
+
+    if not rows:
+        return f"Geen cadans gemeten in de afgelopen {maanden} maanden."
+
+    def periode(d: date) -> str:
+        return f"week van {d.day} {MAANDEN[d.month - 1]}" if eenheid == "week" else f"{MAANDEN[d.month - 1]} {d.year}"
+
+    regels = [f"Cadans per {per}, laatste {maanden} maanden:"]
+    for r in rows:
+        stap = f", staplengte {_staplengte(r['stap'])}" if r["stap"] else ""
+        hs = f", hartslag {round(r['hartslag'])}" if r["hartslag"] else ""
+        tempo = f", tempo {_tempo(r['tempo'])}" if r["tempo"] else ""
+        regels.append(f"{periode(r['periode'])}: {round(r['cadans'])}{stap}{tempo}{hs} ({r['n']} {'run' if r['n'] == 1 else 'runs'})")
+    verschil = round(rows[-1]["cadans"]) - round(rows[0]["cadans"])
+    if len(rows) > 1:
+        richting = "gelijk gebleven" if verschil == 0 else (f"{abs(verschil)} hoger" if verschil > 0 else f"{abs(verschil)} lager")
+        regels.append(f"Van {periode(rows[0]['periode'])} tot {periode(rows[-1]['periode'])}: {richting}.")
+    per_band = {b["band"]: b for b in banden}
+    if "rustig" in per_band and "snel" in per_band:
+        rustig, snel = per_band["rustig"], per_band["snel"]
+        regels.append(
+            f"Rustige runs (tempo {_tempo(rustig['p67'])} of langzamer): cadans {round(rustig['c'])}, "
+            f"staplengte {_staplengte(rustig['s'])}, hartslag {round(rustig['h'])}. "
+            f"Snelle runs ({_tempo(snel['p33'])} of sneller): cadans {round(snel['c'])}, "
+            f"staplengte {_staplengte(snel['s'])}, hartslag {round(snel['h'])}."
+        )
+    if zonder["n"]:
+        regels.append(f"Let op: bij de {zonder['n']} runs na {_datum(laatste['d'])} is geen cadans gemeten.")
+    return "\n".join(regels)

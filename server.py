@@ -103,12 +103,12 @@ async def recente_trainingen(
     aantal: Annotated[int, Field(description="Hoeveel trainingen, 1 tot 30.")] = 5,
     soort: Soort = "running",
 ) -> str:
-    """Iwans meest recente trainingen (standaard hardlopen): datum, afstand, tijd, tempo, gemiddelde hartslag en of er al een notitie is."""
+    """Iwans meest recente trainingen (standaard hardlopen): datum, afstand, tijd, tempo, gemiddelde hartslag, cadans en of er al een notitie is."""
     return await training.recente_trainingen(aantal, soort)
 
 @mcp.tool(annotations=LEZEN)
 async def training_details(datum: Datum = None, training_id: TrainingId = None, soort: Soort = "running") -> str:
-    """Alles over één training van Iwan: tempo, hartslag, zones, splits per km, wat er gepland stond en de notities."""
+    """Alles over één training van Iwan: tempo, hartslag, zones, cadans en staplengte, splits per km, wat er gepland stond en de notities."""
     return await training.training_details(datum, training_id, soort)
 
 @mcp.tool(annotations=TOEVOEGEN)
@@ -136,6 +136,15 @@ async def status_notities(
 ) -> str:
     """Iwans statusnotities van de afgelopen tijd, zoals het verloop van de heupblessure."""
     return await training.status_notities(dagen, categorie)
+
+@mcp.tool(annotations=LEZEN)
+async def cadans_trend(
+    maanden: Annotated[int, Field(description="Hoeveel maanden terug, 1 tot 60.")] = 6,
+    per: Annotated[str, Field(description="'maand' (standaard) of 'week'.")] = "maand",
+    tempo_banden: Annotated[bool, Field(description="Ook rustige tegenover snelle runs vergelijken.")] = True,
+) -> str:
+    """Hoe Iwans cadans (stappen per minuut) zich ontwikkelt per week of maand, met staplengte, tempo en hartslag, en het verschil tussen rustige en snelle runs. Cadans per run staat ook in recente_trainingen en training_details."""
+    return await training.cadans_trend(maanden, per, tempo_banden)
 
 @mcp.tool(annotations=LEZEN)
 async def trainingsschema(dagen: Annotated[int, Field(description="Hoeveel dagen vooruit, 1 tot 60.")] = 7) -> str:

@@ -17,12 +17,13 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 |------|-----|
 | `get_current_datetime` | Datum, weekdag en tijd in Nederland |
 | `carwash_get_history` | Wasgeschiedenis bij Carwash Kleiboer |
-| `recente_trainingen` | Laatste trainingen (standaard hardlopen) |
-| `training_details` | Eén training: zones, splits, schema, notities |
+| `recente_trainingen` | Laatste trainingen (standaard hardlopen), met cadans |
+| `training_details` | Eén training: zones, cadans en staplengte, splits, schema, notities |
 | `notitie_bij_training` | Vult de notities van een training aan (nooit overschrijven) |
 | `status_notitie` | Notitie los van een training, bijv. over de heup |
 | `status_notities` | Recente statusnotities |
 | `trainingsschema` | Wat er de komende dagen gepland staat |
+| `cadans_trend` | Cadans per week of maand, met staplengte, tempo, hartslag; rustige vs. snelle runs |
 | `agenda` | Afspraken voor een dag of periode (max. 14 dagen) uit iCloud en de werkagenda |
 | `afspraak_plannen` | Nieuwe afspraak in iCloud; eerst voorlezen, pas na "ja" opslaan (`bevestigd`) |
 | `mijn_dag` | Dagbriefing: eerste afspraak, training, rest van de dag, herinneringen die vervallen of over tijd zijn |
@@ -32,7 +33,8 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 
 De trainingstools lezen en schrijven de Postgres van health-dashboard als rol `mcp`
 (`HEALTH_DATABASE_URL`). Die rol mag lezen uit `Run`, `RunSplit`, `StatusNote` en
-`TrainingPlanEntry`, alleen `Run.notes`/`updatedAt` wijzigen en `StatusNote` aanvullen:
+`TrainingPlanEntry`, alleen `Run.notes`/`updatedAt` wijzigen en `StatusNote` aanvullen.
+Krijgt de rol ook `SELECT` op `"RunSample"`, dan toont `training_details` de cadans per km:
 
 ```sql
 CREATE ROLE mcp LOGIN PASSWORD '...';
