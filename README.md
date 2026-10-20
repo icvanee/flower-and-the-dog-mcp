@@ -33,14 +33,14 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 
 De trainingstools lezen en schrijven de Postgres van health-dashboard als rol `mcp`
 (`HEALTH_DATABASE_URL`). Die rol mag lezen uit `Run`, `RunSplit`, `StatusNote` en
-`TrainingPlanEntry`, alleen `Run.notes`/`updatedAt` wijzigen en `StatusNote` aanvullen.
-Krijgt de rol ook `SELECT` op `"RunSample"`, dan toont `training_details` de cadans per km:
+`TrainingPlanEntry` (en `RunSample`, voor de cadans per km), alleen `Run.notes`/`updatedAt`
+wijzigen en `StatusNote` aanvullen:
 
 ```sql
 CREATE ROLE mcp LOGIN PASSWORD '...';
 GRANT CONNECT ON DATABASE health TO mcp;
 GRANT USAGE ON SCHEMA public TO mcp;
-GRANT SELECT ON "Run", "RunSplit", "StatusNote", "TrainingPlanEntry" TO mcp;
+GRANT SELECT ON "Run", "RunSplit", "StatusNote", "TrainingPlanEntry", "RunSample" TO mcp;
 GRANT UPDATE (notes, "updatedAt") ON "Run" TO mcp;
 GRANT INSERT ON "StatusNote" TO mcp;
 GRANT USAGE ON SEQUENCE "StatusNote_id_seq" TO mcp;
