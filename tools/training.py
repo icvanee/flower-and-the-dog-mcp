@@ -91,6 +91,30 @@ def _samenvatting(run: dict) -> str:
     return ", ".join(delen) + "."
 
 
+# Het schema heeft wedstrijden twee keer: in hun fase (bv. "Fase 1") en in het blok
+# "Wedstrijden", met dezelfde datum en hetzelfde type. Toon zo'n dag één keer, met de
+# rij uit de fase, gemarkeerd als wedstrijd. `{waar}` is de datumvoorwaarde op p.
+PLAN_QUERY = """
+SELECT p.date, p.type, p."plannedKm", p.description, p.status, p.block,
+       (p.block = 'Wedstrijden' OR EXISTS (
+           SELECT 1 FROM "TrainingPlanEntry" w WHERE w.block = 'Wedstrijden' AND w.date = p.date AND w.type = p.type
+       )) AS wedstrijd
+FROM "TrainingPlanEntry" p
+WHERE {waar}
+  AND (p.block <> 'Wedstrijden' OR NOT EXISTS (
+      SELECT 1 FROM "TrainingPlanEntry" o WHERE o.block <> 'Wedstrijden' AND o.date = p.date AND o.type = p.type
+  ))
+ORDER BY p.date, p.id
+"""
+
+
+def _plan_regel(r: dict) -> str:
+    """'Easy 6,0 km (dalweek)' of 'Wedstrijd: BAX 7,5K 7,5 km (…)'."""
+    km = f" {_km(r['plannedKm'] * 1000)} km" if r["plannedKm"] else ""
+    omschrijving = f" ({r['description']})" if r["description"] else ""
+    return f"{'Wedstrijd: ' if r['wedstrijd'] else ''}{r['type']}{km}{omschrijving}"
+
+
 # Cadans onder de 100 stappen per minuut is een meetfout (er staan nullen in de data)
 MIN_CADANS = 100
 
@@ -174,9 +198,7 @@ async def training_details(datum: str | None = None, training_id: str | None = N
         splits = await (await conn.execute(
             'SELECT km, "paceSecPerKm", "avgHrBpm" FROM "RunSplit" WHERE "runId" = %s ORDER BY km', (run["id"],)
         )).fetchall()
-        plan = await (await conn.execute(
-            'SELECT type, "plannedKm", description FROM "TrainingPlanEntry" WHERE date = %s', (run["date"],)
-        )).fetchall()
+        plan = await (await conn.execute(PLAN_QUERY.format(waar="p.date = %s"), (run["date"],))).fetchall()
         cadans_per_km = await _cadans_per_km(conn, run["id"])
 
     regels = [_samenvatting(run)]
@@ -220,8 +242,7 @@ async def training_details(datum: str | None = None, training_id: str | None = N
             for s in splits
         ) + ".")
     for p in plan:
-        gepland = f" {_km(p['plannedKm'] * 1000)} km" if p["plannedKm"] else ""
-        regels.append(f"Gepland: {p['type']}{gepland}" + (f" ({p['description']})" if p["description"] else "") + ".")
+        regels.append(f"Gepland: {_plan_regel(p)}.")
     if run["logbookNotes"]:
         regels.append(f"Uit het runlog:\n{run['logbookNotes']}")
     if run["notes"]:
@@ -283,8 +304,7 @@ async def trainingsschema(dagen: int = 7) -> str:
     vandaag = datetime.now(TZ).date()
     async with await _connect() as conn:
         rows = await (await conn.execute(
-            'SELECT block, date, type, "plannedKm", description, status FROM "TrainingPlanEntry" '
-            "WHERE date >= %(van)s AND date < %(van)s + %(dagen)s::int ORDER BY date",
+            PLAN_QUERY.format(waar="p.date >= %(van)s AND p.date < %(van)s + %(dagen)s::int"),
             {"van": vandaag, "dagen": dagen},
         )).fetchall()
         if not rows:
@@ -292,27 +312,14 @@ async def trainingsschema(dagen: int = 7) -> str:
     if not rows:
         tot = f" Het schema loopt tot {_datum(laatste['d'])}." if laatste and laatste["d"] else ""
         return f"Niets gepland voor de komende {dagen} dagen.{tot}"
-    regels = []
-    for r in rows:
-        km = f" {_km(r['plannedKm'] * 1000)} km" if r["plannedKm"] else ""
-        omschrijving = f" ({r['description']})" if r["description"] else ""
-        regels.append(f"{_datum(r['date'])}: {r['type']}{km}{omschrijving}.")
-    return "\n".join(regels)
+    return "\n".join(f"{_datum(r['date'])}: {_plan_regel(r)}." for r in rows)
 
 
 async def geplande_trainingen(dag: date) -> list[str]:
     """De trainingen die op `dag` in het schema staan, als korte zinnen (voor mijn_dag)."""
     async with await _connect() as conn:
-        rows = await (await conn.execute(
-            'SELECT type, "plannedKm", description FROM "TrainingPlanEntry" WHERE date = %s ORDER BY id',
-            (dag,),
-        )).fetchall()
-    regels = []
-    for r in rows:
-        km = f" {_km(r['plannedKm'] * 1000)} km" if r["plannedKm"] else ""
-        omschrijving = f" ({r['description']})" if r["description"] else ""
-        regels.append(f"{r['type']}{km}{omschrijving}")
-    return regels
+        rows = await (await conn.execute(PLAN_QUERY.format(waar="p.date = %s"), (dag,))).fetchall()
+    return [_plan_regel(r) for r in rows]
 
 
 async def _cadans_per_km(conn, run_id: str) -> list[tuple[int, int]]:

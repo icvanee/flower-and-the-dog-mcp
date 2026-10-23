@@ -101,7 +101,9 @@ async def mijn_dag(dag: str | None = None) -> str:
         label = "Nu bezig" if nu_bezig else ("Volgende afspraak" if voorbij else "Eerste afspraak")
         regels.append(f"{label}: {_regel(met_tijd[0])}.")
     if trainingen:
-        regels.append("Training: " + "; ".join(trainingen) + ".")
+        # Een wedstrijd staat er al als "Wedstrijd: ..."; dan geen "Training:" ervoor
+        label = "" if all(t.startswith("Wedstrijd: ") for t in trainingen) else "Training: "
+        regels.append(label + "; ".join(trainingen) + ".")
     if hele_dag:
         regels.append("Hele dag: " + "; ".join(f"{a['titel']} ({a['agenda']})" for a in hele_dag) + ".")
     if len(met_tijd) > 1:
