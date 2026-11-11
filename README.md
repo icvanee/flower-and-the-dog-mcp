@@ -30,7 +30,7 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 | `scenes` | HomeKit-scènes die de connector kan aanzetten |
 | `scene` | Zet een scène aan, na bevestiging; alleen opdrachten die met "Scene " beginnen |
 | `lampen` | Lampen per kamer met stand en helderheid, via het home-dashboard (127.0.0.1:8787) |
-| `lamp` | Lamp aan, uit of op een helderheid, zonder bevestiging; alleen `light.*` die op de plattegrond van het dashboard staan |
+| `lamp` | Lamp aan, uit of op een helderheid, zonder bevestiging; alleen `light.*` die op de plattegrond van het dashboard staan, plus de tuinlampen Popeye en Lampensnoer (`switch.popeye`, `switch.kaku2`, alleen aan/uit) |
 | `temperatuur` | Binnentemperatuur (thermostaat, HomePods), of de thermostaat stookt en de stand van de kachel, via het dashboard |
 | `thermostaat` | Zet de thermostaat op een temperatuur, na bevestiging; draait alleen opdrachten `Thermostaat NN` / `Thermostaat NN,5` (15–25 °C) |
 | `wasmachine_vaatwasser` | Stand, programma, fase en eindtijd van wasmachine en vaatwasser, plus waarschuwingen; alleen lezen |

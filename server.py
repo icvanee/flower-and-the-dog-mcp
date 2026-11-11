@@ -234,7 +234,7 @@ async def _lamp(
     actie: Annotated[str, Field(description="'aan' of 'uit'.")],
     helderheid: Annotated[int | None, Field(description="Alleen bij aan: helderheid in procent, 1 tot 100. Leeg = aan zoals hij was.")] = None,
 ) -> str:
-    """Zet een lamp in Iwans huis aan of uit, of op een helderheid. Mag direct, zonder eerst te vragen. Is de naam niet eenduidig, dan komt er een vraag terug: lees die voor."""
+    """Zet een lamp in Iwans huis aan of uit, of op een helderheid (Popeye en het lampensnoer in de tuin alleen aan of uit). Mag direct, zonder eerst te vragen. Is de naam niet eenduidig, dan komt er een vraag terug: lees die voor."""
     return await lampen.lamp(naam, actie, helderheid)
 
 # ─── Temperatuur en thermostaat ────────────────────────────────────────────────

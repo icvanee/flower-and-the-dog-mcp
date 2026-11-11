@@ -17,6 +17,8 @@ import urllib.request
 
 DASHBOARD = os.environ.get("HOME_DASHBOARD_URL", "http://127.0.0.1:8787").rstrip("/")
 TIMEOUT_SECONDEN = 10
+# schakelaars die eigenlijk lampen zijn (aan/uit, geen helderheid); in het dashboard OUTDOOR_LIGHTS
+LAMP_SCHAKELAARS = {"switch.popeye", "switch.kaku2"}
 
 
 class DashboardFout(Exception):
@@ -47,12 +49,13 @@ def _lampen() -> list[dict]:
     kamer_van = {e: kamer for kamer, ents in st.get("rooms", {}).items() for e in ents}
     lampen = []
     for eid, e in st.get("entities", {}).items():
-        if not eid.startswith("light.") or eid not in kamer_van:
+        if not (eid.startswith("light.") or eid in LAMP_SCHAKELAARS) or eid not in kamer_van:
             continue
         b = e.get("brightness")
         lampen.append({"id": eid, "naam": e.get("name") or eid, "kamer": kamer_van[eid], "aan": e.get("state") == "on",
                        "pct": round(b / 2.55) if e.get("state") == "on" and b else None,
-                       "groep": bool(e.get("group")), "beschikbaar": e.get("state") in ("on", "off")})
+                       "groep": bool(e.get("group")), "beschikbaar": e.get("state") in ("on", "off"),
+                       "dimbaar": eid.startswith("light.")})
     return lampen
 
 
@@ -130,8 +133,13 @@ def _lamp_sync(naam: str, actie: str, helderheid: int | None) -> str:
     if actie == "uit":
         if not lamp["aan"]:
             return f"{lamp['naam']} stond al uit."
-        _http("/api/turn_off", {"entity_id": eid})
+        _http("/api/turn_off" if lamp["dimbaar"] else "/api/toggle", {"entity_id": eid})  # schakelaar staat zeker aan
         return f"{lamp['naam']} is uit."
+    if helderheid is not None and not lamp["dimbaar"]:
+        if lamp["aan"]:
+            return f"{lamp['naam']} kan alleen aan of uit, niet dimmen. Hij staat aan."
+        _http("/api/toggle", {"entity_id": eid})
+        return f"{lamp['naam']} is aan. Dimmen kan bij deze lamp niet."
     if helderheid is not None:
         pct = max(1, min(100, int(helderheid)))
         _http("/api/brightness", {"entity_id": eid, "pct": pct})
