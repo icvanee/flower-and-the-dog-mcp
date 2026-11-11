@@ -18,7 +18,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from auth import SingleUserOAuthProvider
-from tools import agenda, carwash, herinneringen, lampen, scenes, training
+from tools import agenda, carwash, herinneringen, lampen, scenes, thermostaat, training
 from tools import dag as dagbriefing
 
 # ─── Config ────────────────────────────────────────────────────────────────────
@@ -236,6 +236,21 @@ async def _lamp(
 ) -> str:
     """Zet een lamp in Iwans huis aan of uit, of op een helderheid. Mag direct, zonder eerst te vragen. Is de naam niet eenduidig, dan komt er een vraag terug: lees die voor."""
     return await lampen.lamp(naam, actie, helderheid)
+
+# ─── Temperatuur en thermostaat ────────────────────────────────────────────────
+
+@mcp.tool(name="temperatuur", annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
+async def _temperatuur() -> str:
+    """Hoe warm het binnen is (thermostaat, woonkamer, slaapkamer), of de thermostaat stookt en of de kachel in de gang aan staat. De ingestelde doeltemperatuur van de thermostaat is niet bekend."""
+    return await thermostaat.temperatuur()
+
+@mcp.tool(name="thermostaat", annotations=ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=True))
+async def _thermostaat(
+    temperatuur: Annotated[float, Field(description="Gewenste temperatuur in graden, in stappen van een halve graad, bijvoorbeeld 20 of 19.5.")],
+    bevestigd: Annotated[bool, Field(description="Alleen true nadat Iwan duidelijk ja heeft gezegd op de vraag of de thermostaat op die temperatuur moet.")] = False,
+) -> str:
+    """Zet de thermostaat in Iwans huis op een temperatuur. Roep eerst aan met bevestigd=false: dat doet niets en geeft de vraag om voor te lezen (of welke temperaturen wel kunnen). Pas na een duidelijk ja: bevestigd=true."""
+    return await thermostaat.thermostaat(temperatuur, bevestigd)
 
 # ─── HTTP-routes buiten MCP ────────────────────────────────────────────────────
 
