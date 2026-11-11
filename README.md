@@ -29,6 +29,8 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 | `mijn_dag` | Dagbriefing: eerste afspraak, training, rest van de dag, herinneringen die vervallen of over tijd zijn |
 | `scenes` | HomeKit-scènes die de connector kan aanzetten |
 | `scene` | Zet een scène aan, na bevestiging; alleen opdrachten die met "Scene " beginnen |
+| `lampen` | Lampen per kamer met stand en helderheid, via het home-dashboard (127.0.0.1:8787) |
+| `lamp` | Lamp aan, uit of op een helderheid, zonder bevestiging; alleen `light.*` die op de plattegrond van het dashboard staan |
 | `herinnering_maken` | Nieuwe herinnering in Apple Herinneringen (standaard lijst "Herinneringen"), ook met `bevestigd` |
 
 De trainingstools lezen en schrijven de Postgres van health-dashboard als rol `mcp`

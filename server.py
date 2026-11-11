@@ -18,7 +18,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from auth import SingleUserOAuthProvider
-from tools import agenda, carwash, herinneringen, scenes, training
+from tools import agenda, carwash, herinneringen, lampen, scenes, training
 from tools import dag as dagbriefing
 
 # ─── Config ────────────────────────────────────────────────────────────────────
@@ -218,6 +218,24 @@ async def _scene(
 ) -> str:
     """Zet een HomeKit-scène aan in Iwans huis. Roep eerst aan met bevestigd=false: dat doet niets en geeft de vraag om voor te lezen. Pas na een duidelijk ja: bevestigd=true. Voert uitsluitend opdrachten uit die met 'Scene ' beginnen, nooit een andere opdracht."""
     return await scenes.scene(naam, bevestigd)
+
+# ─── Lampen (via het home-dashboard op de Mini) ────────────────────────────────
+
+@mcp.tool(name="lampen", annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
+async def _lampen(
+    kamer: Annotated[str | None, Field(description="Alleen deze kamer, bijvoorbeeld Mancave of Keuken. Leeg = alle lampen.")] = None,
+) -> str:
+    """De lampen in Iwans huis per kamer, met of ze aan of uit staan en hoe fel."""
+    return await lampen.lampen(kamer)
+
+@mcp.tool(name="lamp", annotations=ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=True))
+async def _lamp(
+    naam: Annotated[str, Field(description="Lamp of kamer zoals Iwan hem noemt, bijvoorbeeld 'mancave', 'plafondlamp mancave' of 'keuken'.")],
+    actie: Annotated[str, Field(description="'aan' of 'uit'.")],
+    helderheid: Annotated[int | None, Field(description="Alleen bij aan: helderheid in procent, 1 tot 100. Leeg = aan zoals hij was.")] = None,
+) -> str:
+    """Zet een lamp in Iwans huis aan of uit, of op een helderheid. Mag direct, zonder eerst te vragen. Is de naam niet eenduidig, dan komt er een vraag terug: lees die voor."""
+    return await lampen.lamp(naam, actie, helderheid)
 
 # ─── HTTP-routes buiten MCP ────────────────────────────────────────────────────
 
