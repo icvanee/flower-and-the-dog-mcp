@@ -51,6 +51,8 @@ def _regel(eid: str, e: dict) -> str | None:
         b = e.get("brightness")
         return _omschrijving({"naam": naam, "beschikbaar": st in ("on", "off"), "aan": st == "on",
                               "pct": round(b / 2.55) if st == "on" and b else None})
+    if eid == "switch.schuifdeur":  # deursensor als schakelaar: uit = dicht (vastgesteld 2026-11-11, deur dicht)
+        return f"{naam}: {'open' if st == 'on' else 'dicht'}"
     if dom == "switch":
         return f"{naam}: {'aan' if st == 'on' else 'uit'}"
     if dom == "person":
