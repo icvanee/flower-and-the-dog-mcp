@@ -18,7 +18,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from auth import SingleUserOAuthProvider
-from tools import agenda, carwash, herinneringen, lampen, scenes, thermostaat, training
+from tools import agenda, apparaten, carwash, herinneringen, huis, lampen, scenes, thermostaat, training
 from tools import dag as dagbriefing
 
 # ─── Config ────────────────────────────────────────────────────────────────────
@@ -251,6 +251,25 @@ async def _thermostaat(
 ) -> str:
     """Zet de thermostaat in Iwans huis op een temperatuur. Roep eerst aan met bevestigd=false: dat doet niets en geeft de vraag om voor te lezen (of welke temperaturen wel kunnen). Pas na een duidelijk ja: bevestigd=true."""
     return await thermostaat.thermostaat(temperatuur, bevestigd)
+
+# ─── Wasmachine en vaatwasser (alleen uitlezen) ────────────────────────────────
+
+@mcp.tool(name="wasmachine_vaatwasser", annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
+async def _apparaten(
+    welke: Annotated[str | None, Field(description="'wasmachine' of 'vaatwasser'. Leeg = allebei.")] = None,
+) -> str:
+    """Of de wasmachine en de vaatwasser bezig, klaar of uit zijn, met programma, fase en hoe laat ze klaar zijn, plus waarschuwingen (deur open, zout of glansspoelmiddel op). Alleen uitlezen: starten of stoppen kan niet."""
+    return await apparaten.apparaten(welke)
+
+# ─── Alles in huis (alleen uitlezen) ───────────────────────────────────────────
+
+@mcp.tool(name="huis", annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
+async def _huis(
+    kamer: Annotated[str | None, Field(description="Alleen deze kamer, bijvoorbeeld Tuin, Oprit, Keuken, Meterkast. Leeg = het hele huis.")] = None,
+    zoek: Annotated[str | None, Field(description="Alleen wat dit woord bevat, bijvoorbeeld 'schuifdeur', 'beweging', 'stroom', 'thuis'.")] = None,
+) -> str:
+    """Alles wat er in Iwans huis uit te lezen is, per kamer: lampen, schakelaars (zoals de schuifdeur en het lampensnoer), temperatuur en luchtvochtigheid, stroomverbruik en gasmeter, beweging en deurbel, media, kachel, wasmachine en vaatwasser, en wie er thuis is. Gebruik kamer of zoek om het kort te houden. Alleen uitlezen."""
+    return await huis.huis(kamer, zoek)
 
 # ─── HTTP-routes buiten MCP ────────────────────────────────────────────────────
 

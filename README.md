@@ -33,6 +33,8 @@ op iPhone), met OAuth in plaats van een vaste Bearer-token.
 | `lamp` | Lamp aan, uit of op een helderheid, zonder bevestiging; alleen `light.*` die op de plattegrond van het dashboard staan |
 | `temperatuur` | Binnentemperatuur (thermostaat, HomePods), of de thermostaat stookt en de stand van de kachel, via het dashboard |
 | `thermostaat` | Zet de thermostaat op een temperatuur, na bevestiging; draait alleen opdrachten `Thermostaat NN` / `Thermostaat NN,5` (15–25 °C) |
+| `wasmachine_vaatwasser` | Stand, programma, fase en eindtijd van wasmachine en vaatwasser, plus waarschuwingen; alleen lezen |
+| `huis` | Alles wat het dashboard toont, per kamer of op zoekwoord (lampen, schakelaars zoals de schuifdeur, sensoren, energie, beweging, deurbel, media, wie er thuis is); alleen lezen |
 | `herinnering_maken` | Nieuwe herinnering in Apple Herinneringen (standaard lijst "Herinneringen"), ook met `bevestigd` |
 
 De trainingstools lezen en schrijven de Postgres van health-dashboard als rol `mcp`
